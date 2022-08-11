@@ -1,0 +1,29 @@
+<ISPF DSLIST/V>
+
+Volume . : EAVCB1
+Command ===>
+
+Unit . . : 3390               Free Space
+
+ VTOC Data                    Total              Tracks         Cyls
+ Tracks  . :       630        Size  . . :     1,801,649      120,108
+ %Used . . :         1        Largest . :       981,675       65,445
+ Free DSCBS:    31,488        Free
+                              Extents . :       5
+
+ Volume Data                  Track Managed      Tracks         Cyls
+ Tracks . :     1,803,060     Size  . . :       981,704       65,445
+ %Used  . :             0     Largest . :       981,675       65,445
+ Trks/Cyls:            15     Free
+                              Extents . :       4
+
+<DEAV>
+
+FREE SPACE ON VOLUME EAVCB1  WHICH HAS A  CYLINDER MANAGED AREA
+TOTAL                ADD TRACKS               CYLS             FREE XTS
+SIZE . .:            0000000029         0000120108           0000000005
+LARGEST.:            0000000000         0000065445
+TRACK MANAGED        ADD TRACKS               CYLS             FREE XTS
+SIZE . .:            0000000029         0000065445           0000000004
+LARGEST.:            0000000000         0000065445
+

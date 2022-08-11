@@ -1,0 +1,69 @@
+/* --------------------  rexx procedure  -------------------- *
+ | Name:      PDSINFO                                         |
+ |                                                            |
+ | Function:  The PDSINFO exec is used to display dataset     |
+ |            information (DSINFO) in a pop-up panel.         |
+ |                                                            |
+ | Use:       INFO is a PDS extended primary command in       |
+ |            panel P86OPUX.                                  |
+ |                                                            |
+ | Author:    Janko Kalinic                                   |
+ |            The ISPF Cabal - Vive la revolution             |
+ |            the.pds.command@gmail.com                       |
+ |                                                            |
+ | History:  (most recent on top)                             |
+ |            08/23/21 - Add LNKLST, APF for RECFM=U          |
+ |                     - Maximum dir. blocks for LIBRARY type |
+ |                     - Add Device Type                      |
+ |            08/20/21 - Creation                             |
+ |                                                            |
+ * ---------------------------------------------------------- */
+Parse Upper Arg dsn
+/* --------------------------------- *
+ | Info routine                      |
+ * --------------------------------- */
+  do_info:
+   Address ISPExec
+   "dsinfo dataset("dsn")"
+   if rc <> 0 then
+     exit
+   cvt      = c2d(storage(10,4))
+   cvtdfa   = c2d(storage(d2x(cvt + 1216),4))   /* cvt + 4c0 */
+   dfamgen  = c2d(storage(d2x(cvtdfa + 76),4))  /* dfa + 4c  */
+   h1  = 'Data Set Name:' dsn
+   l1  = left('Volser:',20) left(strip(zdsvol),11) ,
+         left('Management Class:',20) strip(zdsmc)
+   l2  = left('Data set name type:',20) left(strip(zdsdsnt),11) ,
+         left('Storage Class:',20) strip(zdssc)
+   l3  = left('Data set version:',20) left(strip(zdsdsnv),11) ,
+         left('Data Class:',20) strip(zdsdc)
+   if zdsdsnt = 'PDS' then
+     l4  = left('Directory Allocated:',20) left(strip(zdsdira),11) ,
+           left('Directory Used:',20) left(strip(zdsdiru),11)
+     else
+       if zdsdsnt = 'LIBRARY' then
+     l4  = left('Maximum dir. blocks:',20) left(strip(zdsdir),11) ,
+           left('Data Encrypted:',20) left(strip(zdsencr),11)
+   l5  = left('Record format:',20) left(strip(zdsrf),11) ,
+         left('Extents Allocated:',20) left(strip(zdsexta),11)
+   l6  = left('Record length:',20) left(strip(zdslrec),11) ,
+         left('Extents Used:',20) left(strip(zdsextu),11)
+   l7  = left('Block size:',20) left(strip(zdsblk),11) ,
+         left('Number of Members:',20) left(strip(zds#mem),11)
+   l8  = left('Units:',20) left(strip(zdsspc),11),
+         left('Device Type:',20) left(strip(zdsdevt),11)
+   l9  = Left('Primary:',20) left(strip(zds1ex),11) ,
+         left('MaxGens:',20) left(strip(zdsngen),11)
+   l10 = left('Secondary:',20) left(strip(zds2ex),11) ,
+         left('System MaxGens:',20) left(strip(dfamgen),11)
+   l11 = left('Allocated:',20) left(strip(zdstota),11) ,
+         left('Pages Used:',20) left(strip(zdspagu),11)
+   l12 = left('Used:',20) left(strip(zdstotu),11) ,
+         left('% Pages Utilized:',20) left(strip(zdsperu),11)
+   if zdsrf = 'U' then
+     l13 = left('LNKLST status:',20) left(strip(zdslnk),11) ,
+           left('APF status:',20) left(strip(zdsapf),11)
+   'addpop row(3) column(3)'
+   'display panel(p86info)'
+   'rempop'
+   exit

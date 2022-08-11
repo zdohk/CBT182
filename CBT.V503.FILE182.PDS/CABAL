@@ -1,0 +1,8 @@
+/* rexx */
+zerrsm = ''
+zerrlm = left('The ISPF Cabal - Vive la revolution',73)
+zerralrm = 'NO'
+zerrhm = ''
+Address ISPExec
+'setmsg msg(isrz002)'
+exit

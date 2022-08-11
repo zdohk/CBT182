@@ -1,0 +1,73 @@
+The following is a list of known issues with MXI 4.3:
+
+o  No knowledge of 64-bit storage for address space and system level
+   metrics
+o  No knowledge of 64-bit storage for memory browsing
+o  No knowledge of 5-digit UCBs
+o  No knowledge of PAV
+o  No knowledge of z/IIP and z/AAP
+o  Some DASD and SMS displays can be truncated on large shops and
+     even fail with region size related abends
+o  DB2 V9 not supported
+o  Linkage index display produces no results
+o  Incomplete results for HSM request queue
+o  No knowledge of EAV DASD
+o  LPD display is incorrect in z/OS 2.3 (see below for zap)
+o  CAT display is incorrect in z/OS 2.3 (see below for zap)
+
+The recommended version for z/OS v1r9 and above =  MXI G2 V5.2
+
+For more information, please contact Rocket Software, Terri Bonee,
+tbonee@rs.com, 617-614-2301.
+
+************************************************************************
+
+MXIBAT is a subcommand that invokes the Rob Scott MXI program via
+the TSO/E Service Facility Routine, IKJEFTSR.
+
+For example:
+  MXIBAT IPL
+  MXIBAT MENU
+
+Add MXI to the AUTHTSF section of IKJTSO00 to run authorized
+MXI commands with the PDS interface.  Caution, as this will make the
+MXI ISPF Dialog run authorized as well.
+
+************************************************************************
+
+MXI 4.3 zaps for z/OS 2.3:
+
+//ZAPMXI   EXEC  PGM=AMASPZAP
+//SYSPRINT DD  SYSOUT=*
+//SYSLIB   DD  DSN=SYS1.CBT.LINKLIB,DISP=SHR
+* LPD SEARCH - MXI VERSION 4.3 GENLEVEL 050126
+ NAME MXI     MXILPD
+ VER  089C    41202028    LA    R2,40(R2)   LPD LENGTH  <  Z/OS 2.3
+ REP  089C    41202030    LA    R2,48(R2)   LPD LENGTH  >= Z/OS 2.3
+ NAME MXIREXX MXILPD
+ . . . repeat
+
+//ZAPMXI2  EXEC  PGM=AMASPZAP
+//SYSPRINT DD  SYSOUT=*
+//SYSLIB   DD  DSN=SYS1.CBT.LINKLIB,DISP=SHR
+* CATALOG INFO - MXI VERSION 4.3 GENLEVEL 050126
+* FLAGS
+* ----R-  CATALOG DEFINED FOR CROSS SYSTEM SHARING
+ NAME MXI     MXICAT
+*                         TM    CAXFLG3,CAXF3ICF+CAXF3SO4+CAXF3SHD
+ VER  041A    9123200A    TM    10(R2),X'23' B'00100011'
+*                         TM    CAXFLG3,CAXF3SO4+CAXF3SHD
+ REP  041A    9103200A    TM    10(R2),X'03' B'00000011'
+ NAME MXIREXX MXICAT
+ . . . repeat
+* FLAGS
+* Y-----  ALLOCATED TO THE CATALOG ADDRESS SPACE
+ NAME MXI     MXICAT
+*                                CLC   CAXDSABP(4),=X'00000000'
+ VER  039E    D50320C8C620       CLC   200(4,R2),A00620 =X'00000000'
+*                                TM    CAXFLG5,CAXF5CAS
+ REP  039E    9180200B           TM    11(R2),X'80' B'10000000'
+ REP  03A2    47E0C3AE           BNO   *+12
+ REP  03A6    0700               NOPR  R0
+ NAME MXIREXX MXICAT
+ . . . repeat

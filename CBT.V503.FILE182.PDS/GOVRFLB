@@ -1,0 +1,35 @@
+GOVRFLB (ORIGIN LIST FOR MAIN STORAGE QUEUES)
+
++----------------------------------------------------------------------+
+| 0 (0)                         SQBOUND                                |
+|  Reserved       Address of First Byte Beyond System Queue Area       |
+|  (see note 2)                                                        |
++----------------------------------------------------------------------+
+| 4 (4)                                                                |
+|  Reserved                     DQESQES                                |
+|                 Address of the DQE Describing the System Queue Area  |
++----------------------------------------------------------------------+
+| 8 (8)                         PQEPTR                                 |
+|  Reserved       Address of a dummy PQE minus 8 bytes. The dummy      |
+|                 PQE points to the PQE describing unassigned main     |
+|                 storage (storage not assigned to any region).        |
++----------------------------------------------------------------------+
+| 12 (C)                        SZDPRS                                 |
+|  Reserved       Amount of Storage Available in Hierarchy 0 After NIP |
++----------------------------------------------------------------------+
+| 16 (10)                       SZDLCS                                 |
+|  Reserved       Amount of Storage Available in Hierarchy 1 After NIP |
++----------------------------------------------------------------------+
+| 20 (14)                       VQEPTR (M65MP only)                    |
+|  COUNT          Address of the First VQE Describing Storage Areas    |
+|  (see note 1)   Scheduled for Removal in a Multiprocessing System    |
+|                         (Zero if no VQE's Exist)                     |
++----------------------------------------------------------------------+
+
+Notes:
+
+1.  The number of 'Vary Storage, Off-line' commands in master
+    scheduler region.
+
+2.  Bit 0 = 1 Tasks have been set nondispatchable for
+    lack of SQS.

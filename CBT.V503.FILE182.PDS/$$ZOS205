@@ -1,0 +1,28 @@
+New Function - Provide the copy of PDSE Member Generations
+               in IEBCOPY
+
+PDS COPY subcommand:  Add GENS parameter
+
+  GENS  - Specifies that all members and generations to be copied
+          from the input PDSE data set are to replace any
+          identically named members on the output PDSE data set.
+
+APAR OA60639.
+
+PTF's available:  UJ05518 UJ05519 UJ05520
+
+
+Problem:
+
+Abend S0C4 PIC 38 in module IGWDCCS0 at offset 7B1E when running
+IEBCOPY with GENS=ALL on a large PDSE V2 member generation dataset.
+
+SYSTEM COMPLETION CODE=0C4  REASON CODE=00000038
+  TIME=08.12.14  SEQ=00727  CPU=0000  ASID=0037
+  PSW AT TIME OF ERROR  075C6001   84D09B1E  ILC 6  INTC 38
+
+Solution:
+
+APAR OA61930
+
+PTF's available:  UJ06577 UJ06578 UJ06579

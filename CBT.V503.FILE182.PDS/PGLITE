@@ -1,0 +1,4242 @@
+/* --------------------  rexx procedure  -------------------- *
+ | Name:      PGLITE®                                         |
+ |                                                            |
+ | Function:  The PGLITE exec is used to display a PDS member |
+ |            list in a dynamic area.  This is much faster    |
+ |            than using ISPF Table services.  Support for    |
+ |            PDSE V2 member generations is provided.  PGLITE |
+ |            is a based on the full function Lionel B. Dyck  |
+ |            PDSEGEN dialog (CBT 969).                       |
+ |                                                            |
+ | Use:       DSLIST - Data Sets Matching TRIDJK.MBRGEN*      |
+ |            Command - Enter "/" to select action            |
+ |            -------------------------------------------     |
+ |                     TRIDJK.MBRGEN.BIG                      |
+ |            pglite   TRIDJK.MBRGEN.V2                       |
+ |                     TRIDJK.MBRGEN2                         |
+ |                                                            |
+ | Hot Spots:                                                 |
+ |            PGLITE®     - switch to PDSEGEN                 |
+ |            Name        - SORT Name                         |
+ |            Created     - SORT Created                      |
+ |            Changed     - SORT Changed                      |
+ |            Size        - SORT Size                         |
+ |            Id          - SORT Id                           |
+ |                                                            |
+ | Primary Commands:                                          |
+ |            Locate mbr  - scroll to mbr: name               |
+ |            Select mbr  - select member for edit            |
+ |            Change dsn  - switch datasets                   |
+ |            FLip        - switch to previous dataset        |
+ |            REFresh     - rebuild the member list           |
+ |            Big filter  - switch to PDSEGEN                 |
+ |            SORT column - sort by column                    |
+ |            Find mbr    - scroll to mbr/ name               |
+ |            RFind       - repeat Find                       |
+ |            Info        - dataset information               |
+ |            CLIST       - view SuperC compare listing       |
+ |            Real        - use real names from PDSEGEN backup|
+ |            ISPList     - write out member list to ISPLIST  |
+ |            VALidate    - validate with IEBPDSE             |
+ |            REFList     - ISPF reference list (datasets)    |
+ |            FAMS        - display FAMS variables            |
+ |            SRCHfor     - search PDS (SuperC)               |
+ |            TPC subcmd  - the PDS command                   |
+ |            Hel cmd     - TSO help for PGLITE command       |
+ |            VERSion     - show PGLITE version               |
+ |            APars       - APARS for PDSE V2 MG              |
+ |            HIGen       - display PDSE V2 MG dummy members  |
+ |            ORPHans     - display orphan members            |
+ |            PROGress    - display progress message          |
+ |            HISt        - display PGLITE mods history       |
+ |            QRef        - display PGLITE quick reference    |
+ |            SPFX        - extract LoadISPF elements         |
+ |            AGE         - display member age metrics        |
+ |            WB          - PDSE Workbench (IBM File Manager) |
+ |            /           - Hotlist commands pop-up           |
+ |            ?           - UDS logo                          |
+ |            CUP         - Gloria, Gloria, ...               |
+ |                                                            |
+ | Line Commands:                                             |
+ |            B  -  Browse                                    |
+ |            E  -  Edit                                      |
+ |            S  -  Edit                                      |
+ |            V  -  View                                      |
+ |            .  -  View (cursor select)                      |
+ |            T  -  Tryit edit macro                          |
+ |            Z  -  Compare non-0 gen to gen 0                |
+ |            /  -  Options                                   |
+ |            D  -  Dump (hex dump of PDSEGENI member record) |
+ |                                                            |
+ | Syntax:    PGLITE dsname                                   |
+ |                                                            |
+ | Required:  PDSEGENI Rexx function                          |
+ |              BPAM Directory Entry SERVices                 |
+ |              by Rem Perretta, Greg Price, and Lionel Dyck  |
+ |                                                            |
+ | Custom:    Local site customization values on lines with   |
+ |              <<=== MODIFY                                  |
+ |                                                            |
+ |            Create DESERV interface module (PDSEGENI) with  |
+ |                                                            |
+ |            1. TSO %PGLITE >PDSEGENI                        |
+ |                     -or-                                   |
+ |            2. TSO SUBMIT this member                       |
+ |                     -or-                                   |
+ |            3. Install SMP usermod (member SMPUMOD3)        |
+ |                                                            |
+ | Author:    Janko Kalinic                                   |
+ |            The ISPF Cabal - Vive la revolution             |
+ |            the.pds.command@gmail.com                       |
+ |                                                            |
+ | History:  (most recent on top)                             |
+ |            04/24/22 - Display 8-char TSO userids           |
+ |            02/03/22 - Remove non-exec RETURNs (find/locate)|
+ |            12/17/21 - Add CMD() to PGLDSN panel            |
+ |            10/04/21 - Add WB command (PDSE Workbench)      |
+ |                     - Hilite SORT column header            |
+ |            09/15/21 - Add trailing quote in DSNAME pop-up  |
+ |            08/30/21 - Prompt for DSNAME in pop-up if null  |
+ |            08/20/21 - List must be in NAME seq for ORPHANS |
+ |            04/28/21 - Add progress message                 |
+ |            09/23/20 - Add DSN (display PDSEGEN history tbl)|
+ |            06/28/20 - Fix DCBE issue if PDSEGENI in LNKLIST|
+ |            06/26/20 - LOCATE null uses last member edited  |
+ |            06/01/20 - CHANGE .llq (low level qualifier)    |
+ |            05/29/20 - Add EAV support to PDSEGENI (LBD)    |
+ |            04/11/20 - Create null member if empty PDS      |
+ |            02/14/20 - Invoke TPC dialog with Select Cmd(...|
+ |            01/24/20 - Add xxxCMDS update for RFIND in Hel  |
+ |            01/10/20 - Display orphan members               |
+ |            12/22/19 - Add SMP install MCS to PGLHELP       |
+ |            12/16/19 - Expand Point-and-Shoot Hotlist       |
+ |            12/14/19 - Add AGE command                      |
+ |            11/25/19 - Add SPFX to extract LOADISPF members |
+ |            11/08/19 - Add PGLITE messages to TSO PGLHELP   |
+ |            10/28/19 - PGLITE Quick Reference Card (QRef)   |
+ |            10/24/19 - Command continuation with +          |
+ |            10/03/19 - Mark aliases *ALI* in member list    |
+ |            09/30/19 - Add Dummies/Orphans count to INFO    |
+ |            09/20/19 - PAS(ON) for member list sort headers |
+ |            09/16/19 - TSO pseudo help:  Hel command        |
+ |            09/06/19 - Remove nulls from Userid             |
+ |            08/27/19 - RFIND wrap                           |
+ |            08/22/19 - Help for Primary Commands            |
+ |            08/05/19 - SuperC search non member generation  |
+ |                       PDS or PDSE.  Allow SRCHFOR operands.|
+ |            07/23/19 - Edit/Browse RC checking (LBD)        |
+ |            04/18/19 - Creation                             |
+ |                                                            |
+ * ---------------------------------------------------------- */
+pglvers = 'PGLITE®   2022-04-24'
+parse upper arg dsname .
+numeric digits 10
+/* -------------------------------------- *
+ | Set defaults                           |
+ * -------------------------------------- */
+init_time = 1           /* Elapsed time at initialization           */
+prog_msg  = 1           /* Progress message pop-up                  */
+edit_non0 = 0           /* Disallow edit of non-zero generations    */
+comp_zero = 1           /* PGLCOMPZ edit macro installed (internal) */
+pdseg_val = 1           /* PDSEGVAL rexx exec installed (internal)  */
+pdseg_fnd = 1           /* PDSEGFND rexx exec installed (internal)  */
+pdseg_dsl = 1           /* PDSEGDSL rexx exec installed (external)  */
+pdseg_run = '%pdsegenx' /* PDSEGEN rexx exec name   <<=== MODIFY    */
+load_info = loadispf()  /* Load in-line panels and execs            */
+/* -------------------------------------- *
+ | Keyword to create PDSEGENI module      |
+ * -------------------------------------- */
+if pos('>PDSEGENI',dsname) > 0 then do
+  say 'Do you want to create a PDSEGENI module?  Y or N'
+  pull create
+  if translate(create) = 'Y' then do
+    call create_pdsegeni
+    x = dropispf(load_info)
+    exit
+    end
+  end
+/* -------------------------------------- *
+ | Validate DSNAME                        |
+ * -------------------------------------- */
+valdsn:
+if dsname = '' then do
+  Address ISPEXec
+  'addpop row(3) column(3)'
+  'display panel(pgldsn)'
+  disp_rc = rc
+  'rempop'
+  if disp_rc = 8 then do
+    x = dropispf(load_info)
+    exit
+    end
+  if left(dsname,1) = "'" then
+    if right(dsname,1) <> "'" then
+      dsname = dsname"'"
+  end
+if 0 <> listdsi(dsname directory) then do
+  if left(dsname,1) <> "'" then
+    dsname = userid()'.'dsname
+  say 'Data set 'dsname' not allocated'
+  dsname = ''
+  signal valdsn
+  end
+dsn = sysdsname
+if 'PO' <> substr(sysdsorg,1,2) then do
+  say 'Data set 'dsname' is not a PDS'
+  dsname = ''
+  signal valdsn
+  end
+if 'U' = substr(sysrecfm,1,1) then do
+  say 'Data set 'dsname' is not a PDS source library'
+  dsname = ''
+  signal valdsn
+  end
+/*
+if sysmembers = 0 then do
+  say 'Data set 'dsname' has no members'
+  dsname = ''
+  signal valdsn
+  end
+*/
+if sysmembers = 0 then do
+  say 'Data set 'dsname' has no members ... creating $$$$$$$$'
+  newmbr = '$$$$$$$$'
+  Address ISPExec
+  "edit dataset('"substr(dsname,2,length(dsname)-2)"("newmbr")')",
+   "macro(pglfirst)"
+  end
+/* -------------------------------------- *
+ | Read directory with DESERV             |
+ * -------------------------------------- */
+readdir:
+  column = 'NAME'       /* Initialize SORT column */
+  Address TSO
+  "alloc f(pdsedd) da("dsname") shr reuse"
+  x = time('r')         /* Initialization for Elapsed Time */
+  x = pdsegeni(pdsedd)  /* Perretta/Price/Dyck®            */
+  "free f(pdsedd)"
+  if x <> 0 then do
+    geni_rc = x
+    say 'PDSEGENI interface failed, return code = 'geni_rc
+    select
+    when geni_rc = -1 then
+      say 'No arguments found'
+    when geni_rc = -2 then
+      say 'DDNAME length error'
+    when geni_rc = -3 then
+      say 'DDNAME is all spaces'
+    when geni_rc = -4 then
+      say 'DDNAME is not allocated'
+    when geni_rc = -5 then
+      say 'Open error'
+    when geni_rc = -6 then
+      say 'IKJCT441 invocation error'
+    when geni_rc = -7 then
+      say 'DESERV invocation error'
+    when geni_rc = -8 then
+      say 'No SMDE entries'
+    when geni_rc = -9 then
+      say 'Library type is not a PDS or PDSE'
+    when geni_rc = -10 then
+      say 'PDS or PDSE is not a program type'
+    when geni_rc = -11 then
+      say 'IKJCT441 invocation error '
+    when geni_rc = -12 then
+      say 'IKJCT441 invocation error'
+    otherwise
+    end
+    x = dropispf(load_info)
+    exit
+    end
+/* -------------------------------------- *
+ | PDSEGENI member. stem format           |
+ * -------------------------------------- */
+/*
+  Field      Start Length
+
+  member      5    8
+  absgen     13    8
+  vrm        22    5
+  cdate      35    7   yyyyddd
+  ttr        46    3
+  mdate      49    7   yyyyddd
+  mtime      56    7   0hhmmss
+  userid     63    8
+  mmod       71    2   hex mod records
+  cur size   75    4   hex
+  init size  79    4   hex
+  dummy flag 87    1   D for dummy generation
+*/
+/* -------------------------------------------------- *
+ | Now process the member info returned from PDSEGENI |
+ * -------------------------------------------------- */
+  Address ISPExec
+  "dsinfo dataset('"dsn"')"
+  red   = '01'x                             /* Assign colors to       */
+  blue  = '02'x                             /*     Attribute bytes    */
+  turq  = '03'x                             /*     found in the data  */
+  white = '04'x
+  green = '05'x
+  sel   = '10'x                             /* line command           */
+  dyndata  = ''                             /* initialize data        */
+  shadata  = ''                             /* initialize shadow var  */
+  maxlines = 0
+  dir. = ''
+  others = ''
+
+  if prog_msg  = 1 then
+    call set_progress
+  do i = 1 to member.0
+  if prog_msg  = 1 then do
+    dcount = i
+    call disp_progress
+    end
+    parse value member.i with 5 mbr 13 agen 21 . 22 vrm 27 . ,
+      35 cdate 42 . 46 mttr ,
+      49 mdate 56 mtime 63 muser 71    mmod 73 . 75 mcur 79 minit ,
+      83 dmy .
+    agen = right(agen,7)                   /* len=7 for 8-char TSO  */
+    if dmy = 'D' then do
+      others = others i
+      iterate
+      end
+    if c2x(mttr) == '000000' then do
+      others = others i
+      iterate
+      end
+    muser = translate(muser,'40'x,'00'x)   /* xstats userid nulls?  */
+   /* --------------------------------- *
+    | Make counts and dates displayable |
+    * --------------------------------- */
+    if mcur = '    '
+       then tcur = 0
+       else tcur = x2d(c2x(mcur))
+    if minit = '    '
+       then tinit = 0
+       else tinit = x2d(c2x(minit))
+   /* ---------------------------------------- *
+    | Fixup the counts for display             |
+    | if > 99,999 then use M (million) suffix  |
+    | if > 9,999 then use K (thousands) suffix |
+    | Note: STATS EXT is required for > 65k    |
+    * ---------------------------------------- */
+    select
+    when tcur > 999999 then do
+         tcur    = tcur%1000000||'M'
+         cscale = '09'x||2                 /* non-intens sort field */
+         end
+    when tcur > 99999 then do
+         tcur    = tcur%1000||'K'
+         cscale = '09'x||1                 /* non-intens sort field */
+         end
+    otherwise cscale = '09'x||0            /* non-intens sort field */
+    end
+    select
+    when tinit > 999999 then do
+         tinit   = tinit%1000000||'M'
+         end
+    when tinit > 99999 then do
+         tinit   = tinit%1000||'K'
+         end
+    otherwise nop
+    end
+    tcur = right(tcur,5)
+    tinit = right(tinit,5)
+    if mmod = '' then
+      tmod = '     '
+    else
+      tmod = format(c2d(mmod),5)
+    if cdate <> '' then do
+      tcdate = date('S',substr(cdate,3,5),'J')
+      tcdate = substr(tcdate,1,4)||'/'||,
+               substr(tcdate,5,2)||'/'||,
+               substr(tcdate,7,2)
+      end
+    if mdate <> '' then do
+      tmdate = date('S',substr(mdate,3,5),'J')
+      tmdate = substr(tmdate,1,4)||'/'||,
+               substr(tmdate,5,2)||'/'||,
+               substr(tmdate,7,2)
+      end
+    if mtime <> '' then
+      tmtime = substr(mtime,2,2)||':'||substr(mtime,4,2)
+
+    if zdsngen = 0 then                    /* maxgens = 0 */
+      agen = '       '                     /* no aliases, len=7 */
+
+    if vrm = '' then do
+      if agen > 0 then
+        y = sel||' '||blue||mbr agen
+      else
+        y = sel||' '||turq||mbr agen
+      dyndata=dyndata||left(y,80)
+      maxlines = maxlines + 1
+      dir.maxlines = left(y,80)
+      end
+    else do
+      if substr(member.i,43,1) = 'Y' then  /* alias */
+        vrm = '*ALI*'
+      if agen > 0 then
+        y = sel||' '||blue||mbr agen vrm tcdate tmdate tmtime '',
+            tcur cscale blue tinit muser
+      else
+        y = sel||' '||turq||mbr agen vrm tcdate tmdate tmtime '',
+            tcur cscale turq tinit muser
+      dyndata=dyndata||left(y,80)
+      maxlines = maxlines + 1
+      dir.maxlines = left(y,80)
+      end
+  end
+  dir.0 = maxlines
+  dyndata = dyndata||,                     /* mark bottom             */
+            white||centre(' Bottom of data ',79,'*')
+
+  if init_time = 1 then do                 /* elapsed time            */
+    call elapsed_time
+    zerrlm = ''
+    zerrsm = right(et,8)
+    zerralrm = 'NO'
+    zerrhm = 'pgldirh'
+    Address ISPExec
+    'setmsg msg(isrz002)'
+    end
+  "lminit dataid(edt) dataset('"dsn"')"    /* generate a data ID      */
+  usrrfind = 'PASSTHRU'                    /* RFIND                   */
+  'vput (usrrfind)'
+/* ------------------------------------------------------------------ */
+/* Doug Nadel scrolling code; ISPF Panels Beyond the Basics, Mar 2000 */
+/* ------------------------------------------------------------------ */
+call do_color_turq
+pclrnm = 'Yellow'
+doug:
+dynarea  = ''                              /* initialize data         */
+dynshad  = ''                              /* initialize shadow var   */
+curline  = 1                               /* set current line #      */
+Address ISPExec
+'vget (zscreend)'                          /* get screen depth        */
+ht = zscreend                              /* screen height           */
+do until disprc > 0
+  dynarea = substr(dyndata,1+(curline-1)*80,ht*80) /* set dynamic var */
+  dynshad = ''                                     /* set shadow  var */
+  'display panel(pgldirg)'                 /* display the data        */
+  disprc = rc                              /* save return code        */
+  'vget (zverb,zscrolla,zscrolln)'         /* get scroll values       */
+  select                                   /* process scrolling       */
+    when(zverb = 'UP')   then              /* scroll up               */
+     if zscrolla = 'MAX' then              /*  if scroll was max      */
+      curline = 1                          /*     scroll to top       */
+     else                                  /*  else a number is known */
+      curline = max(1,curline-zscrolln);   /* (maximum is top)        */
+    when(zverb = 'DOWN') then              /* scroll down             */
+     if zscrolla = 'MAX' then              /*  if scroll was max      */
+      curline = maxlines                   /*     scroll to bottom    */
+     else                                  /*  else a number is known */
+      curline = min(maxlines,curline+zscrolln)  /* (max is bottom)    */
+    otherwise                       /* could use left & right too     */
+  end
+/* ------------------------------------------------------------------ */
+/* Doug Nadel scrolling code; end                                     */
+/* ------------------------------------------------------------------ */
+/* --------------------------------- *
+ | Cursor select VIEW                |
+ * --------------------------------- */
+  if cname = 'DYNAREA' &,
+     (cpos // 80) = 2  &,
+     substr(dynarea,cpos,1) <> '*' then do
+    mbr = substr(dynarea,cpos+2,8)
+    gen = strip(substr(dynarea,cpos+2+8+1+3,5))
+    if substr(dynarea,cpos+2+8+1+3+5+1+5+1,1) = '@' then do  /* real? */
+      mbr = substr(dynarea,cpos+2+8+1+3+5+1+5+1,8)
+      gen = ''
+      end
+    if left(mbr,1) = '@' & datatype(substr(mbr,2,7),'N') = 1 then
+      "view dataid("edt") member("mbr") gen("gen") macro(gname)"
+    else
+      "view dataid("edt") member("mbr") gen("gen")"
+    end
+/* --------------------------------- *
+ | Primary commands                  |
+ * --------------------------------- */
+  zcmd_lower = zcmd
+  zcmd = translate(zcmd)
+  if abbrev("/",word(zcmd,1),1) = 1 |,
+     abbrev("O",word(zcmd,1),1) = 1 |,
+     abbrev("HOTLIST",word(zcmd,1),3) = 1 then do
+    zcmd = ''
+    'addpop row(3) column(3)'
+    'display panel(pglhot)'
+    'rempop'
+    end
+  if right(zcmd,1) = "+" then do
+    cpos = pos('+',zcmd)
+    'display panel(pglcont) csrpos('cpos')'
+    if rc = 8 then
+      zcmd = ''
+    end
+  select
+  when abbrev("LOCATE",word(zcmd,1),1) = 1 then do
+    locstr = word(zcmd,2)
+    zcmd = ''
+    if locstr = '' & lastmbr <> 'LASTMBR' then          /*DRK*/
+      locstr = lastmbr
+    call locate
+    end
+  when abbrev("FIND",word(zcmd,1),1) = 1 then do
+    findstr = strip(word(zcmd,2),,"'")
+    zcmd = ''
+    call find
+    end
+  when abbrev("RFIND",word(zcmd,1),2) = 1 then do
+    if curline = maxlines then
+      curline = 0
+    curline = curline + 1
+    zcmd = ''
+    call find
+    end
+  when abbrev("REFRESH",word(zcmd,1),3) = 1 then do
+    zcmd = ''
+    "lmfree dataid("edt")"
+    signal readdir
+    end
+  when abbrev("SORT",word(zcmd,1),4) = 1 then do
+    column = word(zcmd,2)
+    zcmd = ''
+    if column = '' then do
+      "lmfree dataid("edt")"
+      signal readdir
+      end
+    if abbrev("NAME",word(column,1),1) = 1 then do
+      "lmfree dataid("edt")"
+      signal readdir
+      end
+    "dsinfo dataset('"dsn"')"
+    if zdsngen > 0 then do
+      created = '-dr -k5,5'
+      changed = '-dr -k6,6 -k7,7'
+      size    = '-nr -k9,9 -k8,8'
+      id      = '    -k12,12'
+      end
+    else do
+      created = '-dr -k4,4'
+      changed = '-dr -k5,5 -k6,6'
+      size    = '-nr -k8,8 -k7,7'
+      id      = '    -k11,11'
+      end
+    if abbrev("CREATED",word(column,1),2) = 1 then do
+      call do_color_turq
+      pclrcr = 'Yellow'
+      call do_sort created
+      end
+    if abbrev("CHANGED",word(column,1),2) = 1 then do
+      call do_color_turq
+      pclrch = 'Yellow'
+      call do_sort changed
+      end
+    if abbrev("SIZE",word(column,1),1) = 1 then do
+      call do_color_turq
+      pclrsz = 'Yellow'
+      call do_sort size
+      end
+    if abbrev("ID",word(column,1),1) = 1 then do
+      call do_color_turq
+      pclrid = 'Yellow'
+      call do_sort id
+      end
+    signal doug
+    end
+  when abbrev("SELECT",word(zcmd,1),1) = 1 then do
+    mbr = word(zcmd,2)
+    gen = word(zcmd,3)
+    zcmd = ''
+    if edit_non0 = 0  &,
+      gen > 0 then
+      epgm = 'view'
+    else
+      epgm = 'edit'
+    'control errors return'
+    epgm "dataid("edt") member("mbr") gen("gen")"     /* edit */
+    if rc = 0 & epgm = 'edit' then do                 /* data saved */
+      lastmbr = mbr
+      "lmfree dataid("edt")"
+      signal readdir
+      end
+    if rc > 8 then 'setmsg msg(isrz002)'
+    end
+  when abbrev("ALLOW",word(zcmd,1),5) = 1 then do
+    zcmd = ''
+    edit_non0 = 1
+    end
+  when abbrev("DISALLOW",word(zcmd,1),8) = 1 then do
+    zcmd = ''
+    edit_non0 = 0
+    end
+  when abbrev("PROGRESS",word(zcmd,1),4) = 1 then do
+    state = word(zcmd,2)
+    zcmd = ''
+    if state = 'ON' then
+      prog_msg = 1
+    if state = 'OFF' then
+      prog_msg = 0
+    if state = ''    then
+      prog_msg = bitxor(prog_msg,'01'x)
+    end
+  when abbrev("XBIG",word(zcmd,1),4) = 1 then do
+    big_exec = word(zcmd,2)
+    zcmd = ''
+    pdseg_run = '%'big_exec
+    end
+  when abbrev("ORPHANS",word(zcmd,1),4) = 1 then do
+    if column = '' | column = 'NAME' then  do
+      zcmd = ''
+      call do_orphans
+      end
+    else do
+      zerrsm = ""
+   /* zerrsm = "Error" */
+      zerrlm = "Member list sorted by "column".",
+               "Member list must be sorted by NAME for ORPHANS",
+               "to work correctly."
+      zerrhm   = 'pgldirh'
+      zerralrm = 'NO'
+      Address ISPExec 'setmsg msg(isrz002)'
+      end
+    end
+  when abbrev("INFO",word(zcmd,1),1) = 1 |,
+    abbrev("USAGE",word(zcmd,1),1) = 1 then do
+    zcmd = ''
+    call do_info
+    end
+  when abbrev("CUP",word(zcmd,1),3) = 1 then do
+    zcmd = ''
+    "select pgm(isptutor) parm(pglblues)"
+    end
+  when abbrev("APARS",word(zcmd,1),2) = 1 then do
+    zcmd = ''
+    "select pgm(isptutor) parm(pglapars)"
+    end
+  when abbrev("HIGEN",word(zcmd,1),3) = 1 |,
+       abbrev("DEBUG",word(zcmd,1),3) = 1 then do
+    type = word(zcmd,2)
+    zcmd = ''
+    call do_higen
+    end
+  when abbrev("DUMMIES",word(zcmd,1),3) = 1 then do
+    zcmd = ''
+    call do_dummies
+    zerrsm = ''
+    zerrlm = 'Dummies='dummy_cnt
+    zerralrm = 'NO'
+    zerrhm = 'pgldirh'
+    Address ISPExec
+    'setmsg msg(isrz002)'
+    end
+  when abbrev("HIST",word(zcmd,1),3) = 1 |,
+       abbrev("MODS",word(zcmd,1),4) = 1 then do
+    zcmd = ''
+    call do_history
+    end
+  when abbrev("SPFX",word(zcmd,1),4) = 1 then do
+    zcmd = ''
+    call do_ispfx
+    end
+  when abbrev("DESERV",word(zcmd,1),3) = 1 then do
+    zcmd = ''
+   'addpop row(3) column(3)'
+   'display panel(pglgeni)'
+   'rempop'
+    end
+  when abbrev("QREF",word(zcmd,1),2) = 1 then do
+    zcmd = ''
+    "select pgm(isptutor) parm(pglqref)"
+    end
+  when abbrev("?",word(zcmd,1),1) = 1 then do
+    zcmd = ''
+    "select pgm(isptutor) parm(pgllogo)"
+    end
+  when abbrev("CLIST",word(zcmd,1),5) = 1 then do
+    zcmd = ''
+    "view dataset(ISPFEDIT.COMPARE.LIST)"             /* Super-C list */
+    end
+  when abbrev("REVIEW",word(zcmd,1),3) = 1 then do
+    parse var zcmd_lower cmd arg
+    zcmd = ''
+    arg = strip(arg)
+    if left(arg,1) = '/' then
+      "select cmd(rev "arg")"                /* Greg Price HFS REVIEW */
+    else
+      "select cmd(rev '"dsn"' gen)"              /* Greg Price REVIEW */
+    end
+  when abbrev("WB",word(zcmd,1),2) = 1 then do
+    zcmd = ''
+      fmnpwbds = "'"dsn"'"
+      "vput (fmnpwbds) profile"
+      "select cmd(fmnmain pwb) mode(fscr)"      /* FileMgr PDSE WB    */
+    end
+  when abbrev("FAMS",word(zcmd,1),4) = 1 then do
+    parse var zcmd cmd famsarg
+    zcmd = ''
+    "select cmd(%pglfamsx "dsn famsarg")"       /* Dan Dalby FAMSEXTR */
+    end
+  when abbrev("BIG",word(zcmd,1),1) = 1 then do
+    parse var zcmd cmd filter
+    zcmd = ''
+    if filter = '' then
+      filter = substr(dyndata,4+(curline-1)*80,8)
+    "select cmd("pdseg_run "'"dsn"'" filter")" /* PDSEGEN - Big Bro   */
+    end
+  when abbrev("DSN",word(zcmd,1),2) = 1 then do
+    zcmd = ''
+    lastdsn = dsn
+    if pdseg_dsl  = 1 then do
+      dsname = pdsegdsl()                      /* PDSEGEN - DSN Hist  */
+      if dsname <> 0 then do
+        "lmfree dataid("edt")"
+        signal valdsn
+        end
+      end
+    end
+  when abbrev("CHANGE",word(zcmd,1),1) = 1 then do
+    lastdsn = dsn
+    dsname = word(zcmd,2)
+    if left(dsname,1) = "." then do
+      if lastpos('.',dsn) > 0 then do
+        dsn = substr(dsn,1,lastpos('.',dsn))||substr(dsname,2)
+        dsname = "'"dsn"'"
+        end
+      end
+    if left(dsname,1) = "'" then
+      if right(dsname,1) <> "'" then
+        dsname = dsname"'"
+    "lmfree dataid("edt")"
+    zcmd = ''
+    signal valdsn
+    end
+  when abbrev("FLIP",word(zcmd,1),2) = 1 then do
+    if lastdsn = 'LASTDSN' then
+      dsname = "'"dsn"'"
+    else
+      dsname = "'"lastdsn"'"
+    lastdsn = dsn
+    "lmfree dataid("edt")"
+    zcmd = ''
+    signal valdsn
+    end
+  when abbrev("REAL",word(zcmd,1),1) = 1 |,
+       abbrev("VIRTUAL",word(zcmd,1),1) = 1 then do
+    zcmd = ''
+    call do_virtual
+    end
+  when abbrev("ISPLIST",word(zcmd,1),4) = 1 then do
+    zcmd = ''
+    Address ISPEXec
+    pdsetitl = 'PGLITE®                 ' dsn
+    'list bufname(pdsetitl) linelen(80) page'
+    hdr = '   Name      GenNum VV MM  Created     Changed',
+          '         Size      Init ID'
+    'list bufname(hdr) linelen(80) double'
+    do x = 1 to dir.0
+      dtl='   '||substr(dir.x,4,58)||'     '||substr(dir.x,67,14)
+      'list bufname(dtl) linelen(80) single'
+      end
+    ztdmark = centre(' Bottom of data ',80,'*')
+    'list bufname(ztdmark) linelen(80) single'
+    zerralrm = 'NO'
+    zerrhm = 'pgldirh'
+    zerrsm = dir.0 'Members listed'
+    zerrlm = 'Member table has been successfully listed'
+    'Setmsg msg(isrz002)'
+    end
+  when abbrev("AGE",word(zcmd,1),3) = 1 |,
+       abbrev("METRICS",word(zcmd,1),3) = 1 then do
+    zcmd = ''
+    tbl. = 0
+    do x = 1 to dir.0
+      adate = substr(dir.x,40,8)
+      call do_date_range
+      end
+    name = 'today'     ; age1 = tbl.name
+    name = 'yesterday' ; age2 = tbl.name
+    name = 'week'      ; age3 = tbl.name
+    name = 'current'   ; age4 = tbl.name
+    name = 'biweek'    ; age5 = tbl.name
+    name = 'month'     ; age6 = tbl.name
+    name = 'bimonth'   ; age7 = tbl.name
+    name = 'quarter'   ; age8 = tbl.name
+    name = 'halfyear'  ; age9 = tbl.name
+    name = 'year'      ; age10 = tbl.name
+    name = 'biyear'    ; age11 = tbl.name
+    name = 'dirt'      ; age12 = tbl.name
+    Address ISPEXec
+    'addpop row(3) column(3)'
+    'display panel(pglage)'
+    'rempop'
+    drop tbl.
+    end
+  when abbrev("VALIDATE",word(zcmd,1),3) = 1 then do
+      valparm = word(zcmd,2)
+      zcmd = ''
+      if pdseg_val  = 1 then do
+        "select cmd(%pdsegval '"dsn"' "valparm")"
+        end
+      end
+  when abbrev("SRCHFOR",word(zcmd,1),4) = 1 |,
+       abbrev("SEARCH",word(zcmd,1),3) = 1 then do
+      parse var zcmd cmd fndparm
+      if left(fndparm,1) = "'" &,
+         pos(',',fndparm) = 0 then
+        if right(fndparm,1) <> "'" then
+          fndparm = fndparm"'"
+      zcmd = ''
+      if pdseg_fnd  = 1 then do
+        "select cmd(%pdsegfnd '"dsn"' "fndparm")"
+        end
+      end
+  when abbrev("REFLIST",word(zcmd,1),4) = 1 |,
+       abbrev("IRL",word(zcmd,1),3) = 1 then do   /* used in PDS */
+      zcmd = ''
+      "select pgm(isrdslst) parm(PL1 REFLIST)"
+      'vget zrdsn shared'
+      if zrdsn <> '' then do
+        if pos('(',zrdsn) > 0 then
+          dsname = substr(zrdsn,1,pos('(',zrdsn)-1)||"'"
+        else
+          dsname = zrdsn
+        zrdsn = ''
+        'vput zrdsn shared'
+        lastdsn = dsn
+        "lmfree dataid("edt")"
+        signal valdsn
+        end
+      end
+  when abbrev("VERSION",word(zcmd,1),4) = 1 |,
+       abbrev("ABOUT",word(zcmd,1),4)   = 1 then do
+      zcmd = ''
+      zerrsm = ''
+      zerrlm = left(pglvers,73),
+               left('Janko Kalinic',73),
+               left('The ISPF Cabal - Vive la revolution',73),
+               left('Copyleft - GNU GPL v3',73),
+               left('the.pds.command@gmail.com',73)
+      zerralrm = 'NO'
+      zerrhm = 'pgldirh'
+      Address ISPExec
+      'setmsg msg(isrz002)'
+      end
+  when abbrev("BACKUP",word(zcmd,1),6) = 1  |,
+       abbrev("RESTORE",word(zcmd,1),7) = 1 |,
+       abbrev("COPY",word(zcmd,1),4) = 1    |,
+       abbrev("MODEL",word(zcmd,1),5) = 1   |,
+       abbrev("PRUNE",word(zcmd,1),5) = 1 then do
+      bigcmd = word(zcmd,1)
+      zcmd = 'BIG;'bigcmd
+      zerrsm = ''
+      zerrlm = bigcmd' is a PDSEGEN command, press ENTER to invoke'
+      zerralrm = 'NO'
+      zerrhm = 'pgldirh'
+      Address ISPExec
+      'setmsg msg(isrz002)'
+      end
+  when abbrev("TPC",word(zcmd,1),3) = 1 then do    /* the.pds.command */
+      parse var zcmd cmd pds_sub_cmd
+      zcmd = ''
+      'control display line start(1)'
+      "select cmd(pds '"dsn"'" pds_sub_cmd")"
+      end
+  when abbrev("PGLHELP",word(zcmd,1),4) = 1 |,
+       abbrev("HEL",word(zcmd,1),1) = 1 then do
+      findcmd  = word(zcmd,2)
+      zcmd = ''
+      parse var load_info . . . . skeldd .
+   /* call do_pgxlite              /* PGXLITE */ */
+      Address ISPExec
+      "lminit dataid(skel) ddname("skeldd")"
+      "view dataid("skel") member(pglhelp)",
+        "macro(pglfhelp) parm(findcmd)"
+      "lmfree dataid("skel")"
+      end
+  otherwise do
+    if zcmd <> '' then do
+      zerrlm = word(zcmd,1) 'is an invalid command.'
+      zerrsm = 'Invalid command'
+      zerralrm = 'NO'
+      zerrhm = 'pgldirh'
+      Address ISPExec
+      'setmsg msg(isrz002)'
+      zcmd = ''
+      end
+    end
+  end
+/* --------------------------------- *
+ | Line commands                     |
+ * --------------------------------- */
+  do line = 1 to ht-4
+    mbr = substr(dynarea,4+(line-1)*80,8)
+    gen = strip(substr(dynarea,16+(line-1)*80,5))
+    if substr(dynarea,28+(line-1)*80,1) = '@' then do  /* real? */
+      mbr = substr(dynarea,28+(line-1)*80,8)
+      gen = ''
+      end
+    'control errors return'
+    select
+    when substr(dynarea,2+(line-1)*80,1) = 'S' |,
+         substr(dynarea,2+(line-1)*80,1) = 'E' then do
+      if edit_non0 = 0  &,
+        gen > 0 then
+        epgm = 'view'
+      else
+        epgm = 'edit'
+      if left(mbr,1) = '@' & datatype(substr(mbr,2,7),'N') = 1 then
+        epgm "dataid("edt") member("mbr") gen("gen") macro(gname)"
+      else
+        epgm "dataid("edt") member("mbr") gen("gen")"    /* edit */
+      if rc = 0 & epgm = 'edit' then do                /* data saved */
+        lastmbr = mbr
+        "lmfree dataid("edt")"
+        signal readdir                                 /* refresh */
+        end
+      if rc > 8 then 'setmsg msg(isrz002)'
+      end
+    when substr(dynarea,2+(line-1)*80,1) = 'V' then do
+      if left(mbr,1) = '@' & datatype(substr(mbr,2,7),'N') = 1 then
+        "view dataid("edt") member("mbr") gen("gen") macro(gname)"
+      else
+        "view dataid("edt") member("mbr") gen("gen")"    /* view */
+      end
+    when substr(dynarea,2+(line-1)*80,1) = 'B' then do
+      "browse dataid("edt") member("mbr") gen("gen")"  /* browse */
+      if rc > 0 then 'setmsg msg(isrz002)'
+      end
+    when substr(dynarea,2+(line-1)*80,1) = 'T' then do
+      "edit dataid("edt") member("mbr") gen("gen") macro(tryit)"
+      if rc > 8 then 'setmsg msg(isrz002)'
+      end
+    when substr(dynarea,2+(line-1)*80,1) = 'Z' then do
+      if gen > 0 & comp_zero = 1 then do
+        pglcmsg = 'Enter PGLITE® CLIST command to view listing.'
+        "vput (pglcmsg)"
+        "view dataid("edt") member("mbr") gen("gen") macro(pglcompz)"
+        end
+      end
+    when substr(dynarea,2+(line-1)*80,1) = 'D' |,
+         substr(dynarea,2+(line-1)*80,1) = 'I' then do
+       do i = 1 to member.0
+         if mbr = substr(member.i,5,8) &,
+            gen = substr(member.i,13,8) then
+           call hex_dump member.i
+         else
+         if mbr = substr(member.i,5,8) &,
+            substr(member.i,43,1) = 'Y' then           /* alias */
+           call hex_dump member.i
+         end
+      end
+    when substr(dynarea,2+(line-1)*80,1) = 'O' |,
+       substr(dynarea,2+(line-1)*80,1) = '/' then do   /* options */
+       zerrsm = ''
+       if gen > 0 then
+         zerrlm = 'Valid line commands are:',
+                  'E=Edit, V=View, B=Browse, S=Edit,',
+                  'T=Tryit, Z=Compare to generation 0'
+       else
+         zerrlm = 'Valid line commands are:',
+                  'E=Edit, V=View, B=Browse, S=Edit,',
+                  'T=Tryit'
+       zerralrm = 'NO'
+       zerrhm = 'pgldirh'
+       'setmsg msg(isrz002)'
+      end
+    otherwise
+    end
+  end
+end
+/* --------------------------------- *
+ | Free and terminate                |
+ * --------------------------------- */
+  "lmfree dataid("edt")"
+  x = dropispf(load_info)
+  exit
+/* --------------------------------- *
+ | Locate member starting with       |
+ * --------------------------------- */
+  locate:
+   do x = 1 to maxlines
+     line = substr(dyndata,1+(x-1)*80,80)
+     if locstr <= substr(line,4,length(locstr)) then do
+       curline = x
+       leave x
+       end
+     end
+   curline = x
+   if curline > maxlines then
+     curline = maxlines
+   return
+/* --------------------------------- *
+ | Find member with matching         |
+ * --------------------------------- */
+  find:
+   do x = curline to maxlines
+     line = substr(dyndata,1+(x-1)*80,80)
+     if pos(findstr,substr(line,4,8)) > 0 then do
+       zerrsm = "CHARS '"findstr"' found"
+       zerrlm = "Search for CHARS '"findstr"' was successful."
+       zerrhm = 'pgldirh'
+       zerralrm = 'NO'
+       Address ISPExec 'setmsg msg(isrz002)'
+       curline = x
+       leave x
+       end
+     end
+   curline = x
+   if curline > maxlines then do
+     curline = maxlines
+     zerrsm = '*Bottom of list reached*'
+     zerrlm = "CHARS '"findstr"' not found. Press RFIND key to",
+              "continue the search from the top of the member list."
+     zerrhm   = 'pgldirh'
+     zerralrm = 'NO'
+     Address ISPExec 'setmsg msg(isrz002)'
+     end
+   return
+/* --------------------------------- *
+ | Hex dump routine                  |
+ * --------------------------------- */
+  hex_dump:
+   parse arg char
+   zone  = ''
+   digit = ''
+   hex_data = c2x(char)
+   do x = 1 to length(hex_data) by 2
+     zone  = zone||substr(hex_data,x,1)
+     digit = digit||substr(hex_data,x+1,1)
+     end
+   spaces  = copies(' ',64)
+   hex_low =            '000102030405060708090A0B0C0D0E0F'x     /* 00 */
+   hex_low = hex_low || '101112131415161718191A1B1C1D1E1F'x     /* 10 */
+   hex_low = hex_low || '202122232425262728292A2B2C2D2E2F'x     /* 20 */
+   hex_low = hex_low || '303132333435363738393A3B3C3D3E3F'x     /* 30 */
+   char = translate(char,spaces,hex_low)
+   total_lines = length(char) % 79
+   if length(char) // 79 > 0 then
+     total_lines = total_lines + 1
+   say '----+----1----+----2----+----3----+----4----+----5----+----6'||,
+       '----+----7----+----'
+   y = 1
+   do x = 1 to total_lines
+     say substr(char,y,79)
+     say substr(zone,y,79)
+     say substr(digit,y,79)
+     say
+     y = y + 79
+     end
+   return
+/* --------------------------------- *
+ | Elapsed time routine              |
+ * --------------------------------- */
+  elapsed_time:
+   ss = time('e')
+   parse value ss with x"."sec
+   sf = bitor(format(trunc(ss//60),2),'F0'x)
+   mm = format(trunc(ss/60),2)
+   mf = bitor(format(trunc(mm//60),2),'F0'x)
+   hh = bitor(format(trunc(mm/60),2),'F0'x)
+   et = hh||":"||mf||":"sf"."left(sec,2)
+   return
+/* --------------------------------- *
+ | Set header colors                 |
+ * --------------------------------- */
+  do_color_turq:
+   pclrnm = 'Turq' ; pclrcr = 'Turq'; pclrch = 'Turq'
+   pclrsz = 'Turq' ; pclrid = 'Turq'
+   return
+/* --------------------------------- *
+ | Sort routine                      |
+ * --------------------------------- */
+  do_sort:
+   parse arg key
+   env.0=1
+   env.1='LC_COLLATE=S370'
+   stderr.0 = 0
+/* call do_view_stem dir */
+   call BPXWUNIX "/bin/sort "key, ,
+                 "dir.", "dir.", "stderr.", "env."
+   if result > 0 then do
+     say "BPXWUNIX SORT RC="result
+     do i=1 to stderr.0;say stderr.i;end
+     end
+/* call do_view_stem dir */
+   dyndata = ''
+   do x = 1 to maxlines
+     dyndata=dyndata||dir.x
+   end
+   dyndata = dyndata||,                     /* mark bottom            */
+             white||centre(' Bottom of data ',79,'*')
+   return
+/* --------------------------------- *
+ | HIGen routine                     |
+ * --------------------------------- */
+  do_higen:
+    if zdsngen = 0 then
+      return
+    save_others = others
+    debug. = ''
+    cnt = 1
+    debug.cnt = 'Dummmy members:'
+    cnt = cnt + 1
+    debug.cnt = '   PDSEGENI Stem        Name      GenNum'
+    do while others <> ''
+      parse var others num others
+      if left(type,1) <> 'H' then do
+        cnt = cnt + 1
+        debug.cnt = left('   <Member.'num'>',23) substr(member.num,5,16)
+        end
+      else do
+        say '<Member.'num'>'
+        call hex_dump member.num
+        end
+      end
+    others = save_others
+    if left(type,1) <> 'H' then do
+      debug.0 = cnt
+      if cnt > 1 then
+        call do_view_stem debug
+      end
+    drop debug.
+    return
+/* --------------------------------- *
+ | Orphans routine                   |
+ * --------------------------------- */
+  do_orphans:
+    if zdsngen = 0 then
+      return
+    base. = ''
+    orphan. = ''
+    cnt = 1
+    orphan.cnt = 'Orphan members:'
+    cnt = cnt + 1
+    orphan.cnt  = '   Name      GenNum VV MM  Created     Changed',
+                  '         Size       Init ID'
+    do x = 1 to dir.0
+      name = substr(dir.x,4,8)
+      agen  = substr(dir.x,13,7)   /* len=7 */
+      If agen = 0 then
+        base.name = 'Y'
+      else
+        if base.name <> 'Y' then do
+          cnt = cnt + 1
+          orphan.cnt = '   '||substr(dir.x,4,58)||,
+                       '     '||substr(dir.x,67,14)
+          end
+      end
+    drop base.
+    if cnt > 1 then do
+      orphan.0 = cnt
+      call do_view_stem orphan
+      end
+    drop orphan.
+    return
+/* --------------------------------- *
+ | History routine                   |
+ * --------------------------------- */
+  do_history:
+    hist. = ''
+    hist.1 = pglvers
+    hist.2 = ' '
+    line = 1
+    x = sourceline(line)
+    do until pos(' | History:',x) > 0
+      line = line + 1
+      x = sourceline(line)
+      iterate
+      end
+    tail = 3
+    do until pos(' * ----',x) > 0
+      parse value x with '|' hist.tail '|'
+      line = line + 1
+      tail = tail + 1
+      x = sourceline(line)
+      end
+    hist.0 = tail - 1
+    call do_view_stem hist
+    drop hist.
+    return
+/* --------------------------------- *
+ | ISPF extract routine              |
+ * --------------------------------- */
+  do_ispfx:
+    mbrs. = ''
+    line = 1000
+    x = sourceline(line)
+    do until substr(x,1,7) = '>START '
+      line = line + 1
+      x = sourceline(line)
+      iterate
+      end
+    line = line + 1
+    x = sourceline(line)
+    tail = 1
+    do until substr(x,1,7) = '>END */'
+      if substr(x,1,7) = '>Panel ' |,
+         substr(x,1,6) = '>Exec '  |,
+         substr(x,1,6) = '>Skel '  then do
+        parse var x label mbr_name
+        mbrs.tail = './ ADD NAME='left(translate(strip(mbr_name)),8),
+                    '     'label
+        line = line + 1
+        tail = tail + 1
+        x = sourceline(line)
+        iterate
+        end
+      mbrs.tail = substr(x,1,80)
+      line = line + 1
+      tail = tail + 1
+      x = sourceline(line)
+      end
+    mbrs.0 = tail - 1
+    call do_view_stem mbrs
+    drop mbrs.
+    return
+/* --------------------------------- *
+ | ISPF View Stem routine            |
+ * --------------------------------- */
+  do_view_stem:
+    parse arg stem
+    Address TSO
+    dd = '$'right(time("s"),7,"0")     /* create unique ddname */
+    'alloc f('dd') unit(vio) new reuse space(1,1) tracks',
+          'lrecl(80) recfm(f b) blksize(0) dsorg(ps)'
+    'execio * diskw' dd '(finis stem' stem'.'
+
+    Address ISPExec
+    'lminit dataid(id) ddname('dd') enq(exclu)'
+    if rc ¬= 0 then do
+       zedsmsg = 'Error'
+       zedlmsg = 'Error.  LMINIT failed for VIO output file'
+      'setmsg msg(isrz001)'
+      exit
+      end
+    'view   dataid('id') macro(pglreset)'
+    'lmfree dataid('id')'
+    Address TSO 'free f('dd')'
+    return
+/* --------------------------------- *
+ | PGXLITE routine                   |
+ * --------------------------------- */
+  do_pgxlite:
+    skeldd =  "PGXLITE"
+    skeldsn = "'hlq.PGXLITE.skels'"
+    Address TSO
+    "alloc f("skeldd") da("skeldsn") shr reuse"
+    return
+/* --------------------------------- *
+ | Dummies routine                   |
+ * --------------------------------- */
+  do_dummies:
+    save_others = others
+    dummy_cnt = 0
+    do while others <> ''
+      parse var others num others
+      dummy_cnt = dummy_cnt + 1
+      end
+    others = save_others
+    return
+/* --------------------------------- *
+ | Orphan count routine              |
+ * --------------------------------- */
+  do_orph_count:
+    orph_cnt = 0
+    if zdsngen = 0 then
+      return
+    if column = '' | column = 'NAME' then
+      nop
+    else do
+      orph_cnt = '??'
+      return
+      end
+    base. = ''
+    do x = 1 to dir.0
+      name = substr(dir.x,4,8)
+      agen  = substr(dir.x,13,7)   /* len=7 */
+      If agen = 0 then
+        base.name = 'Y'
+      else
+        if base.name <> 'Y' then do
+          orph_cnt = orph_cnt + 1
+          end
+      end
+    drop base.
+    return
+/* --------------------------------- *
+ | Member age routine                |
+ * --------------------------------- */
+  do_date_range:
+  if adate = ''  then
+    return
+  today = date('b')
+  days  = date('b',adate,'o')
+  if today - days <   1 then do; call stats 'today'    ; end
+  if today - days =   1 then do; call stats 'yesterday'; end
+  if today - days <   8 then do; call stats 'week'     ; end
+  if today - days <  11 then do; call stats 'current'  ; end
+  if today - days <  15 then do; call stats 'biweek'   ; end
+  if today - days <  31 then do; call stats 'month'    ; end
+  if today - days <  61 then do; call stats 'bimonth'  ; end
+  if today - days <  91 then do; call stats 'quarter'  ; end
+  if today - days < 184 then do; call stats 'halfyear' ; end
+  if today - days < 366 then do; call stats 'year'     ; end
+  if today - days < 731 then do; call stats 'biyear'   ; end
+  if today - days > 730 then do; call stats 'dirt'     ; end
+  return
+
+  stats:
+  parse arg type
+  tbl.type = tbl.type + 1
+  return
+/* ------------------------------------ *
+ * Setup for Progress Indicator Display *
+ * ------------------------------------ */
+ Set_Progress:
+ division = 10
+ incr = (member.0 % division) + 0
+ if incr = 0 then
+   incr = incr + 1
+ progc = ''
+ perc# = 0
+ return
+/* ---------------- *
+ * Display progress *
+ * ---------------- */
+ Disp_Progress:
+ if dcount // incr = 0 then do
+    progc = progc'--'
+    perc# = perc# + division
+    perc = perc#"%"
+    prog = progc||'>' '('perc')'
+    "Control Display Lock"
+    'addpop column(50) row(-1)'
+    'display panel(pglmsg)'
+    'rempop'
+    end
+ return
+/* --------------------------------- *
+ | Info routine                      |
+ * --------------------------------- */
+  do_info:
+   Address ISPExec
+   "dsinfo dataset('"dsn"')"
+   cvt      = c2d(storage(10,4))
+   cvtdfa   = c2d(storage(d2x(cvt + 1216),4))   /* cvt + 4c0 */
+   dfamgen  = c2d(storage(d2x(cvtdfa + 76),4))  /* dfa + 4c  */
+   #mem = zds#mem
+   do while pos(',',#mem) > 0
+     #mem = delstr(#mem,pos(',',#mem),1)
+   end
+   if zdsngen > 0 then
+     genmbrs  = dir.0 - #mem
+   else
+     genmbrs  = 0
+   do j=length(genmbrs)-3 to 1 by -3
+     genmbrs=insert(',',genmbrs,j)
+   end
+   h1  = 'Data Set Name:' "'"dsn"'"
+   l1  = left('Volser:',20) left(strip(zdsvol),11) ,
+         left('Management Class:',20) strip(zdsmc)
+   l2  = left('Data set name type:',20) left(strip(zdsdsnt),11) ,
+         left('Storage Class:',20) strip(zdssc)
+   l3  = left('Data set version:',20) left(strip(zdsdsnv),11),
+         left('Data Class:',20) strip(zdsdc)
+   l4  = left('Directory Allocated:',20) left(strip(zdsdira),11),
+         left('Directory Used:',20) left(strip(zdsdiru),11)
+   l5  = left('Record format:',20) left(strip(zdsrf),11) ,
+         left('Extents Allocated:',20) left(strip(zdsexta),11)
+   l6  = left('Record length:',20) left(strip(zdslrec),11) ,
+         left('Extents Used:',20) left(strip(zdsextu),11)
+   l7  = left('Block size:',20) left(strip(zdsblk),11) ,
+         left('Base Members:',20) left(strip(zds#mem),11)
+   l8  = left('Units:',20) left(strip(zdsspc),11) ,
+         left('Generation Members:',20) left(strip(genmbrs),11)
+   l9  = Left('Primary:',20) left(strip(zds1ex),11) ,
+         left('MaxGens:',20) left(strip(zdsngen),11)
+   l10 = left('Secondary:',20) left(strip(zds2ex),11) ,
+         left('System MaxGens:',20) left(strip(dfamgen),11)
+   l11 = left('Allocated:',20) left(strip(zdstota),11) ,
+         left('Pages Used:',20) left(strip(zdspagu),11)
+   l12 = left('Used:',20) left(strip(zdstotu),11) ,
+         left('% Pages Utilized:',20) left(strip(zdsperu),11)
+   call do_dummies
+   call do_orph_count
+   /*
+   egenbkup = 'NO'
+   if substr(member.1,5,8) = '$ALLOC'  &,
+      substr(member.2,5,8) = '$BACKUP' &,
+      substr(member.3,5,8) = '$INDEX' then
+     egenbkup = 'YES'
+   l13 = left('PDSEGEN Backup:',20) left(strip(egenbkup),11) , */
+   l13 = left('Orphans:',20) left(strip(orph_cnt),11) ,
+         left('Dummies:',20) left(strip(dummy_cnt),11)
+   'addpop row(3) column(3)'
+   'display panel(pglinfo)'
+   'rempop'
+   return
+/* --------------------------------- *
+ | Virtual routine                   |
+ * --------------------------------- */
+  do_virtual:
+   zerrsm = ''
+   zerrlm = 'The current dataset is not a PDSEGEN Backup.'
+   zerrhm   = 'pgldirh'
+   zerralrm = 'NO'
+   Address TSO
+   if sysdsn("'"dsn"($index)'") /= 'OK' then do
+     Address ISPExec 'setmsg msg(isrz002)'
+     return
+     end
+   if sysdsn("'"dsn"($alloc)'") /= 'OK' then do
+     Address ISPExec 'setmsg msg(isrz002)'
+     return
+     end
+   if sysdsn("'"dsn"($backup)'") /= 'OK' then do
+     Address ISPExec 'setmsg msg(isrz002)'
+     return
+     end
+/* ----------------------------- *
+ | Read in the $INDEX member     |
+ * ----------------------------- */
+   gdd = 'gdd'random(99)
+   "alloc f("gdd") shr reuse ds('"dsn"($index)')"
+   'execio * diskr 'gdd' (finis stem virtual.'
+   'free f('gdd')'
+
+   if substr(dyndata,4+0*80,8) = '$ALLOC' &,
+      substr(dyndata,4+1*80,8) = '$BACKUP' &,
+      substr(dyndata,4+2*80,8) = '$INDEX' then
+     nop
+   else
+     return
+
+   dyndata = ''
+   do x = 1 to 3       /* $alloc, $backup, and $index members */
+     dyndata=dyndata||dir.x
+   end
+   do i = 1 to virtual.0
+     parse value virtual.i with member real agen rgen .
+     x = i + 3
+     @mbr = substr(dir.x,4,8)
+     if agen > 0 then
+       dir.x = translate(dir.x,'02'x,'05'x)        /* turq -> blue */
+     dyndata=dyndata||substr(dir.x,1,3)||,         /* attrs   */
+                      left(real,8),                /* real    */
+                      right(agen,7),               /* agen len=7 */
+                      substr(dir.x,3+8+1+7+2,5),   /* vv.mm   */
+                      left(@mbr,10),               /* virtual */
+                      substr(dir.x,3+8+1+7+7+12,80-(3+8+1+7+7+11))
+   end
+   dyndata = dyndata||,                     /* mark bottom            */
+             white||centre(' Bottom of data ',79,'*')
+   return
+/* ----------------------------- *
+ | Create PDSEGENI DESERV module |
+ * ----------------------------- */
+  create_pdsegeni:
+   parse var load_info . . . . skeldd .
+/* call do_pgxlite                 /* PGXLITE */ */
+   Address ISPExec
+   "lminit dataid(skel) ddname("skeldd")"
+   "edit dataid("skel") member(pdsegeni)"
+   "lmfree dataid("skel")"
+   return
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      DropISPF                                        *
+ *                                                            *
+ * Function:  Remove ISPF LIBDEF's and deactivate ALTLIB's    *
+ *            that were created by the LoadISPF function.     *
+ *                                                            *
+ * Syntax:    rc = dropispf(load_info)                        *
+ *                                                            *
+ * Author:    Janko                                           *
+ *                                                            *
+ * History:                                                   *
+ *            12/05/18 - Creation                             *
+ * ----------------------------------------------------------
+ DropISPF: Procedure ; return 0    /* PGXLITE */              */
+ DropISPF: Procedure
+  arg load_info
+  Address ISPEXEC
+  do until length(load_info) = 0
+     parse value load_info with dd libd load_info
+     if left(libd,6) = "ALTLIB" then do
+        if libd = "ALTLIBC" then lib = "CLIST"
+                            else lib = "EXEC"
+        Address TSO,
+          "Altlib Deact Application("lib")"
+        end
+     else "libdef" libd
+     address tso "free f("dd")"
+     end
+  return 0
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      LoadISPF                                        *
+ *                                                            *
+ * Function:  Load ISPF elements that are inline in the       *
+ *            REXX source code.                               *
+ *                                                            *
+ * Syntax:    rc = loadispf()                                 *
+ *                                                            *
+ *            The inline ISPF resources are limited to        *
+ *            ISPF Messages, Panels, and Skeletons,           *
+ *                 CLISTs and EXECs are also supported.       *
+ *                                                            *
+ *            The inline resources must start in column 1     *
+ *            and use the following syntax:                   *
+ *                                                            *
+ *            >START    used to indicate the start of the     *
+ *                      inline data                           *
+ *                                                            *
+ *            >END    - used to indicate the end of the       *
+ *                      inline data                           *
+ *                                                            *
+ *            Each resource begins with a type record:        *
+ *            >type name                                      *
+ *               where type is CLIST, EXEC, MSG, PANEL, SKEL  *
+ *                     name is the name of the element        *
+ *                                                            *
+ * Sample usage:                                              *
+ *          -* rexx *-                                        *
+ *          load_info = loadispf()                            *
+ *          ... magic code happens here (your code) ...       *
+ *          Address ISPEXEC                                   *
+ *          do until length(load_info) = 0                    *
+ *             parse value load_info with dd libd load_info   *
+ *             if left(libd,6) = "ALTLIB" then do             *
+ *                if libd = "ALTLIBC" then lib = "CLIST"      *
+ *                                    else lib = "EXEC"       *
+ *                Address TSO,                                *
+ *                  "Altlib Deact Application("lib")"         *
+ *                end                                         *
+ *             else "libdef" libd                             *
+ *             address tso "free f("dd")"                     *
+ *             end                                            *
+ *          exit                                              *
+ *          >Start inline elements                            *
+ *          >Panel panel1                                     *
+ *          ...                                               *
+ *          >Msg msg1                                         *
+ *          ...                                               *
+ *          >End of inline elements                           *
+ *                                                            *
+ * Returns:   the list of ddnames allocated for use along     *
+ *            with the libdef's performed or altlib           *
+ *                                                            *
+ *            format is ddname libdef ddname libdef ...       *
+ *                   libdef may be altlibc or altlibe         *
+ *                   for altlib clist or altlib exec          *
+ *                                                            *
+ * Notes:     Entire routine must be included with REXX       *
+ *            exec - inline with the code.                    *
+ *                                                            *
+ * Comments:  The entire rexx program is processed from the   *
+ *            last record to the first to find the >START     *
+ *            record at which point all records from that     *
+ *            point on are processed until the >END           *
+ *            statement or the end of the program is found.   *
+ *                                                            *
+ *            It is *strongly* suggested that the inline      *
+ *            elements be at the very end of your code so     *
+ *            that the search for them is faster.             *
+ *                                                            *
+ *            Inline ISPTLIB or ISPLLIB were not supported    *
+ *            because the values for these would have to be   *
+ *            in hex.                                         *
+ *                                                            *
+ * Author:    Lionel B. Dyck                                  *
+ *                                                            *
+ * History:                                                   *
+ *            05/10/16 - correction for clist and exec        *
+ *            04/19/16 - bug correction                       *
+ *            06/04/04 - Enhancements for speed               *
+ *            08/05/02 - Creation                             *
+ *                                                            *
+ * ---------------------------------------------------------- *
+ * Disclaimer: There is no warranty, either explicit or       *
+ * implied with this code. Use it at your own risk as there   *
+ * is no recourse from either the author or his employeer.    *
+ * ----------------------------------------------------------
+ LoadISPF: Procedure ; return 0    /* PGXLITE */              */
+ LoadISPF: Procedure
+
+ parse value "" with null kmsg kpanel kskel first returns ,
+                     kclist kexec
+/* ------------------------------------------------------- *
+ * Find the InLine ISPF Elements and load them into a stem *
+ * variable.                                               *
+ *                                                         *
+ * Elements keyword syntax:                                *
+ * >START - start of inline data                           *
+ * >CLIST name                                             *
+ * >EXEC name                                              *
+ * >MSG name                                               *
+ * >PANEL name                                             *
+ * >SKEL name                                              *
+ * >END   - end of all inline data (optional if last)      *
+ * ------------------------------------------------------- */
+ last_line = sourceline()
+ do i = last_line to 1 by -1
+    line = sourceline(i)
+    if translate(left(line,6)) = ">START " then leave
+    end
+ rec = 0
+/* --------------------------------------------------- *
+ * Flag types of ISPF resources by testing each record *
+ * then add each record to the data. stem variable.    *
+ * --------------------------------------------------- */
+ do j = i+1 to last_line
+    line = sourceline(j)
+    if translate(left(line,5)) = ">END "   then leave
+    if translate(left(line,7)) = ">CLIST " then kclist = 1
+    if translate(left(line,6)) = ">EXEC "  then kexec  = 1
+    if translate(left(line,5)) = ">MSG "   then kmsg   = 1
+    if translate(left(line,7)) = ">PANEL " then kpanel = 1
+    if translate(left(line,6)) = ">SKEL "  then kskel  = 1
+    rec  = rec + 1
+    data.rec = line
+    end
+
+/* ----------------------------------------------------- *
+ * Now create the Library and Load the Member(s)         *
+ * ----------------------------------------------------- */
+ Address ISPExec
+/* ----------------------------- *
+ * Assign dynamic random ddnames *
+ * ----------------------------- */
+ clistdd = "lc"random(999)
+ execdd  = "le"random(999)
+ msgdd   = "lm"random(999)
+ paneldd = "lp"random(999)
+ skeldd  = "ls"random(999)
+
+/* ---------------------------------------- *
+ *  LmInit and LmOpen each resource library *
+ * ---------------------------------------- */
+ if kclist <> null then do
+    call alloc_dd clistdd
+    "Lminit dataid(clist) ddname("clistdd")"
+    "LmOpen dataid("clist") Option(Output)"
+    returns = strip(returns clistdd ALTLIBC)
+    end
+ if kexec <> null then do
+    call alloc_dd execdd
+    "Lminit dataid(exec) ddname("execdd")"
+    "LmOpen dataid("exec") Option(Output)"
+    returns = strip(returns execdd ALTLIBE)
+    end
+ if kmsg <> null then do
+    call alloc_dd msgdd
+    "Lminit dataid(msg) ddname("msgdd")"
+    "LmOpen dataid("msg") Option(Output)"
+    returns = strip(returns msgdd ISPMLIB)
+    end
+ if kpanel <> null then do
+    call alloc_dd paneldd
+    "Lminit dataid(panel) ddname("paneldd")"
+    "LmOpen dataid("panel") Option(Output)"
+    returns = strip(returns paneldd ISPPLIB)
+    end
+ if kskel <> null then do
+    call alloc_dd skeldd
+    "Lminit dataid(skel) ddname("skeldd")"
+    "LmOpen dataid("skel") Option(Output)"
+    returns = strip(returns skeldd ISPSLIB)
+    end
+
+/* ----------------------------------------------- *
+ * Process all records in the data. stem variable. *
+ * ----------------------------------------------- */
+ do i = 1 to rec
+    record = data.i
+    recordu = translate(record)
+    if left(recordu,5) = ">END " then leave
+    if left(recordu,7) = ">CLIST " then do
+       if first = 1 then call add_it
+       type = "Clist"
+       first = 1
+       parse value record with x name
+       iterate
+       end
+    if left(recordu,6) = ">EXEC " then do
+       if first = 1 then call add_it
+       type = "Exec"
+       first = 1
+       parse value record with x name
+       iterate
+       end
+    if left(recordu,5) = ">MSG " then do
+       if first = 1 then call add_it
+       type = "Msg"
+       first = 1
+       parse value record with x name
+       iterate
+       end
+    if left(recordu,7) = ">PANEL " then do
+       if first = 1 then call add_it
+       type = "Panel"
+       first = 1
+       parse value record with x name
+       iterate
+       end
+    if left(recordu,6) = ">SKEL " then do
+       if first = 1 then call add_it
+       type = "Skel"
+       first = 1
+       parse value record with x name
+       iterate
+       end
+   /* --------------------------------------------*
+    * Put the record into the appropriate library *
+    * based on the record type.                   *
+    * ------------------------------------------- */
+    Select
+      When type = "Clist" then
+           "LmPut dataid("clist") MODE(INVAR)" ,
+                 "DataLoc(record) DataLen(255)"
+      When type = "Exec" then
+           "LmPut dataid("exec") MODE(INVAR)" ,
+                 "DataLoc(record) DataLen(255)"
+      When type = "Msg" then
+           "LmPut dataid("msg") MODE(INVAR)" ,
+                 "DataLoc(record) DataLen(80)"
+      When type = "Panel" then
+           "LmPut dataid("panel") MODE(INVAR)" ,
+                 "DataLoc(record) DataLen(80)"
+      When type = "Skel" then
+           "LmPut dataid("skel") MODE(INVAR)" ,
+                 "DataLoc(record) DataLen(80)"
+      Otherwise nop
+      end
+    end
+ if type <> null then call add_it
+/* ---------------------------------------------------- *
+ * Processing completed - now lmfree the allocation and *
+ * Libdef the library.                                  *
+ * ---------------------------------------------------- */
+ if kclist <> null then do
+    Address TSO,
+    "Altlib Act Application(Clist) File("clistdd")"
+    "LmFree dataid("clist")"
+    end
+ if kexec <> null then do
+    Address TSO,
+    "Altlib Act Application(Exec) File("execdd")"
+    "LmFree dataid("exec")"
+    end
+ if kmsg <> null then do
+    "LmFree dataid("msg")"
+    "Libdef ISPMlib Library ID("msgdd") Stack"
+    end
+ if kpanel <> null then do
+    "Libdef ISPPlib Library ID("paneldd") Stack"
+    "LmFree dataid("panel")"
+    end
+ if kskel <> null then do
+    "Libdef ISPSlib Library ID("skeldd") Stack"
+    "LmFree dataid("skel")"
+    end
+ return returns
+
+/* --------------------------- *
+ * Add the Member using LmmAdd *
+ * based upon type of resource *
+ * --------------------------- */
+ Add_It:
+ Select
+    When type = "Clist" then
+         "LmmAdd dataid("clist") Member("name")"
+    When type = "Exec" then
+         "LmmAdd dataid("exec") Member("name")"
+    When type = "Msg" then
+         "LmmAdd dataid("msg") Member("name")"
+    When type = "Panel" then
+         "LmmAdd dataid("panel") Member("name")"
+    When type = "Skel" then
+         "LmmAdd dataid("skel") Member("name")"
+    Otherwise nop
+    end
+ type = null
+ return
+
+/* ------------------------------ *
+ * ALlocate the temp ispf library *
+ * ------------------------------ */
+ Alloc_DD:
+ arg dd
+ Address TSO
+ if pos(left(dd,2),"lc le") > 0 then
+ "Alloc f("dd") unit(sysda) spa(5,5) dir(1)",
+    "recfm(v b) lrecl(255) blksize(32760)"
+ else
+ "Alloc f("dd") unit(sysda) spa(5,5) dir(1)",
+    "recfm(f b) lrecl(80) blksize(23440)"
+ return
+/*
+>START
+>Panel PGLDIRG
+)ATTR
+  ¦ TYPE(INPUT) INTENS(HIGH) CAPS(OFF) COLOR(RED)
+  @ AREA(DYNAMIC)            SCROLL(ON) EXTEND(ON)
+  01 TYPE(DATAOUT)           COLOR(RED)
+  02 TYPE(DATAOUT)           COLOR(BLUE)
+  03 TYPE(DATAOUT)           COLOR(TURQ)
+  04 TYPE(DATAOUT)           COLOR(WHITE)
+  05 TYPE(DATAOUT)           COLOR(GREEN)
+  09 TYPE(DATAOUT)           INTENS(NON)
+  10 TYPE(DATAIN) CAPS(ON) PAD('.') PAS(ON) COLOR(TURQ)
+  24 type(output) intens(high) caps(off) just(left)
+    pas(on) skip(on) hilite(uscore) color(&pclrnm)
+  25 type(output) intens(high) caps(off) just(left)
+    pas(on) skip(on) hilite(uscore) color(&pclrcr)
+  26 type(output) intens(high) caps(off) just(left)
+    pas(on) skip(on) hilite(uscore) color(&pclrch)
+  27 type(output) intens(high) caps(off) just(left)
+    pas(on) skip(on) hilite(uscore) color(&pclrsz)
+  28 type(output) intens(high) caps(off) just(left)
+    pas(on) skip(on) hilite(uscore) color(&pclrid)
+  r  TYPE(CHAR) COLOR(RED)   HILITE(REVERSE)
+  g  TYPE(CHAR) COLOR(GREEN) HILITE(REVERSE)
+  b  TYPE(CHAR) COLOR(BLUE)  HILITE(REVERSE)
+  $  TYPE(TEXT)              COLOR(YELLOW)
+  #  TYPE(TEXT)              COLOR(TURQ)
+  ~  TYPE(OUTPUT)            COLOR(TURQ)
+  ?  TYPE(OUTPUT) PAS(ON)    COLOR(YELLOW) CAPS(OFF) HILITE(USCORE)
+  !  TYPE(PS)
+)BODY EXPAND(\\)
+!PGLITE®   #&dsnc                                       #Row~Z      #of~Z      +
+%Command ===>¦zcmd                                            %Scroll ===>_Z   +
++
+$ name+    #GenNum VV MM 
+created+   changed+        size+     #InitID+
+@dynarea,dynshad                                                               @
+)INIT
+.zvars = '(curline maxlines zscml)'
+.help = pgldirh
+if (&zscml = ' ') &zscml = 'CSR'
+*Rexx(dsn dsnc)
+  dsnc = center(dsn,44)
+*EndRexx
+&name = 'Name'
+&created = 'Created'
+&changed = 'Changed'
+&size = 'Size'
+&ID = 'ID'
+)PROC
+vput (zscml) profile
+&cpos = .CSRPOS
+&cname = .CURSOR
+)PNTS
+FIELD(ZPS00001) VAR(ZCMD) VAL('BIG')
+FIELD(name)     VAR(ZCMD) VAL('SORT NAME')
+FIELD(created)  VAR(ZCMD) VAL('SORT CREATED')
+FIELD(changed)  VAR(ZCMD) VAL('SORT CHANGED')
+FIELD(size)     VAR(ZCMD) VAL('SORT SIZE')
+FIELD(ID)       VAR(ZCMD) VAL('SORT ID')
+)END
+>Panel PGLDIRH
+)Attr DEFAULT(%+_)
+   %   TYPE(TEXT)  INTENS(HIGH) SKIP(ON)
+   +   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(TURQ)
+   !   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(RED)
+   ~   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(YELLOW)
+   ?   TYPE(TEXT)  INTENS(HIGH) SKIP(ON) COLOR(BLUE)
+   _   TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) HILITE(USCORE)
+   #   AREA(SCRL)  EXTEND(ON)
+)Body EXPAND(\\)
+%Tutorial+\-\(%PGLITE+)\-\%Tutorial
+%Command ===>_ZCMD                                                             +
+#help ------------------------------------------------------------------------ #
+)Area Help
++This table application demonstrates the use of ISPF Dynamic Areas.  Benchmark
++tests have shown dynamic area tables can be lightning faster than ISPF tables.
++
++This application supports PDSE V2 member generations and is based on the full
++function Lionel B. Dyck~PDSEGEN+dialog.  PGLITE is a simpler version, or
++subset, of PDSEGEN.
++
+?Primary Commands:
+%  Locate?mbr    +Scroll to mbr: name          %Find?mbr +Scroll to mbr/ name
+%  Change?dsn    +Switch to another DSN        %REFresh  +Refresh member list
+%  Select?mbr    +Select member for Edit       %FLip     +Switch to prev DSN
+%  Big?filter    +Switch to~PDSEGEN+           %SORT?col +Sort by column
+%  RFind         +Repeat Find                  %Info     +Dataset Information
+%  CLIST         +View SuperC compare listing  %VALidate +Validate PDSE
+%  Real          ~PDSEGEN+backup real names    %SRCHfor  +Search PDS (SuperC)
+%  ISPList       +Write out member list        %VERSion  +Show PGLITE version
+%  REFList       +ISPF Reference list          %Hel?cmd  +Help for a command
+%  HISt          +display PGLITE mods          %AGE      +display mbr age stats
+%  QRef          +display PGLITE quickref      %HIGen    +display dummy mbr info
+%  ORPHans       +display orphan members       %WB       +PDSE Workbench
+%  PROGress      +display progress message     %/        +Hotlist pop-up
+?Line Commands:
+%  E+ ISPF Edit      %V+ ISPF View      %T+ Tryit Edit macro
+%  S+ ISPF Edit      %B+ ISPF Browse    %Z+ Edit Compare non-0 gen to gen 0
++
+?Absolute generation numbering:
++  generation 0 (current or base)
++  generation 3 (third - previous)
++  generation 2 (second)
++  generation 1 (first - oldest)
++
+?Hot Spots:
+%  PGLITE®        +Switch to~PDSEGEN+
+%  Name           +SORT Name
+%  Created        +SORT Created
+%  Changed        +SORT Changed
+%  Size           +SORT Size
+%  Id             +SORT Id
++
+?Tips:+
+   When invoking~PDSEGEN+via the%BIG+primary command, you can stack
+   a~PDSEGEN+primary command by using the ISPF command delimiter, the
+   semicolon.  For example,
+
+    %BIG filter;Dataset Command+
+
+   Dataset Commands:
+       BACkup   RESTore   COPy   MODel   Prune
+
+?PDSEGEN Backup Dataset Notes:+
+   Edit and View on a~PDSEGEN+backup member will fire the!GNAME+
+   edit macro to display the real member name and generation number
+   in a!=NOTE=+line.  The%REAL+command will display the real member
+   names and generations in the GenNum and Created columns of the
+   member list display.
+
+?Author:+
+   Janko Kalinic
+   The ISPF Cabal - Vive la revolution
+   the.pds.command@gmail.com
+
+         (Press%ENTER+for Primary Command explanations)
+
+)Proc
+ &zcont = pgldirh2
+)End
+>Panel PGLDIRH2
+)Attr DEFAULT(%+_)
+   %   TYPE(TEXT)  INTENS(HIGH) SKIP(ON)
+   +   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(TURQ)
+   !   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(RED)
+   ~   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(YELLOW)
+   ?   TYPE(TEXT)  INTENS(HIGH) SKIP(ON) COLOR(BLUE)
+   {   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(YELLOW) HILITE(USCORE)
+   }   TYPE(TEXT)  INTENS(HIGH) SKIP(ON) COLOR(TURQ) HILITE(USCORE)
+   _   TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) HILITE(USCORE)
+   #   AREA(SCRL)  EXTEND(ON)
+)Body EXPAND(\\)
+%Tutorial+\-\(%PGLITE+)\-\%Tutorial
+%Command ===>_ZCMD                                                             +
+#help ------------------------------------------------------------------------ #
+)Area Help
++
+% >LOCATE        +
++
++  Locate will locate the mbr: value in the Name column.
++  The member list will be positioned to the closest matching row.
++
++  Syntax: %Locate?value             +
++
+% >FIND          +
++
++  Find will find the mbr/ value in the Name column.
++
++  Syntax: %Find?value               +
++
+% >RFIND         +
++
++  Repeat Find will find the next mbr/ value in the Name column.
++
++  The ISPF command table must have a user controlled variable for RFIND
++  in order for this to work properly.
++
++       ?Verb      T  Action
++       ?                Description
++
++       %RFIND     0  &&USRRFIND
++       %                User controlled variable for RFIND
++       %RFIND     0  SETVERB
++       %                REPEAT FIND
++
++  If you can not update the installation ISPF command table, here is
++  a rexx solution you can add to PGLITE early on in the exec.
++
++      zctverb  = "RFIND"
++      zcttrunc = 0
++      zctact   = "&&USRRFIND"
++      zctdesc  = "User controlled variable for RFIND"
++      'vget (zsctpref)'
++      ctab = zsctpref'cmds'
++      'tbtop' ctab
++      'tbsarg' ctab
++      'tbscan' ctab 'arglist(zctdesc) condlist(EQ) Next'
++      if rc > 0 then 'tbadd' ctab
++      usrrfind = null
++      'vput (usrrfind)'
++
++  Syntax: %RFind                    +
++
+% >CHANGE        +
++
++  Change will allocate and switch to another DSNAME.
++
++  Syntax: %Change?dsname            +
++
+% >SELECT        +
++
++  Select will invoke ISPF Edit for a given member and generation.
++
++  Syntax: %Select?member generation +
++
+% >BIG           +
++
++  BIG will invoke the critically acclaimed Lionel B. Dyck~PDSEGEN+
++  dialog.
++
++  If no filter is specified, the default is the member name after the
++  member list header.  The rationale being faster entry into~PDSEGEN.+
++
++  You can combine BIG with a~PDSEGEN+primary command using the ISPF
++  command delimiter, such as the following:
++
++   %big;backup +
++   %big;restore+
++   %big;copy   +
++   %big;model  +
++   %big;prune  +
++
++  Syntax: %Big?filter               +
++
+% >CLIST         +
++
++  CLIST will view the last SuperC Compare listing generated by the
++  Z line command (Edit Compare non-0 gen to gen 0).
++
++  Syntax: %CLIST                    +
++
+% >REAL          +
++
++  Real will change the member list display to reflect the real member
++  name and generation contained in the~PDSEGEN+backup dataset.
++
++  Syntax: %Real                     +
++
++ %PGLITE®               +TRIDJK.MBRGEN2.BACK
++ %Command ===>!real+
++
++   {Name+     +GenNum VV MM }Created+   }Changed+
+!  .+$ALLOC            01.00 2019/06/06 2019/06/06 11:27
+!  .+$BACKUP           01.00 2019/06/06 2019/06/06 11:27
+!  .+$INDEX            01.00 2019/06/06 2019/06/06 11:27
+!  .+@0000001          01.01 2019/05/30 2019/06/06 06:46
+!  .+@0000002          01.03 2019/05/30 2019/06/06 08:00
+!  .+@0000003          01.02 2019/05/30 2019/05/30 10:52
+!  .+@0000004          01.07 2009/10/19 2017/03/05 09:15
+!  .+@0000005          01.00 2019/05/21 2019/05/21 07:16
+!  .+@0000006          01.01 2019/05/21 2019/05/21 07:24
+!  .+@0000007          01.02 2019/05/21 2019/05/28 11:39
++
++ %PGLITE®               +TRIDJK.MBRGEN2.BACK
++ %Command ===>
++
++   {Name+     +GenNum VV MM }Created+   }Changed+
+!  .+$ALLOC            01.00 2019/06/06 2019/06/06 11:27
+!  .+$BACKUP           01.00 2019/06/06 2019/06/06 11:27
+!  .+$INDEX            01.00 2019/06/06 2019/06/06 11:27
+!  .?$$$$$$$$        4 01.01 @0000001   2019/06/06 06:46
+!  .?$$$$$$$$        5 01.03 @0000002   2019/06/06 08:00
+!  .+$$$$$$$$        0 01.02 @0000003   2019/05/30 10:52
+!  .+$$$XSTAT        0 01.07 @0000004   2017/03/05 09:15
+!  .?$REAL           1 01.00 @0000005   2019/05/21 07:16
+!  .?$REAL           2 01.01 @0000006   2019/05/21 07:24
+!  .+$REAL           0 01.02 @0000007   2019/05/28 11:39
++
+% >ISPLIST       +
++
++  ISPList will write out the member list to the ISPLIST file.
++
++  Syntax: %ISPList                  +
++
+% >REFLIST       +
++
++  REFList will invoke the ISPF Reference list dialog showing the
++  last 30 referenced datasets.  Any dataset in the list can be
++  selected and switched to.
++
++  The MORE command can be used to display other Personal Data Set
++  Lists.
++
++  Syntax: %REFList                  +
++
+% >DSN           +
++
++  DSN will display the PDSEGEN dataset history table which contains
++  all datasets that have been accessed by PDSEGEN.  PGLITE will switch
++  to the dataset if selected by number on the command line or by using
++  the (s)elect line command.
++
++  Syntax:  %DSn                     +
++
+% >REFRESH       +
++
++  REFresh will refresh the member list by reinvoking the~PDSEGENI+
++  DESERV routine to read the PDSE V2 directory.  Non-zero generation
++  members are displayed in blue, and zero generation members are
++  displayed in cyan.
++
++  Syntax: %REFresh                  +
++
+% >FLIP          +
++
++  FLip will switch to the previously allocated PDS that was used.
++
++  Syntax: %FLip                     +
++
+% >SORT          +
++
++  SORT will sort the member list by column.  SORT invokes Unix SORT
++  and the direction is pre-determined for best results.  SORT column
++  headers are underscored and point-and-shoot.
++
++  Extended ISPF statistics are sorted into order and displayed with
++  scaling factors (M=million, K=thousand) in Size field if necessary.
++
++ %PGLITE®               +TRIDJK.MBRGEN2
++ %Command ===>!sort size+
++
++   {Name+     +GenNum VV MM }Created    }Changed+        }Size+
+!  .+$$$XSTAT        0 01.07 2009/10/19 2017/03/05 09:15   255M
+!  .+BIGUNS          0 01.06 2004/09/01 2005/10/27 15:15  3735M
+!  .?HUNDREDK        1 01.00 2019/04/30 2019/04/30 09:00   100K
+!  .+MSPLU20         0 01.00 2009/09/23 2009/09/23 10:16   1041
+!  .+NINENINE        0 01.00 2016/07/04 2016/07/04 07:04  99999
+!  .+PGLITE          0 01.74 2019/04/16 2019/04/25 08:06    338
+!  .+TWOMIL          0 01.00 2009/08/21 2009/08/21 15:24     2M
++
++ %PGLITE®               +TRIDJK.MBRGEN2
++ %Command ===>+
++
++   }Name+     +GenNum VV MM }Created    }Changed+        {Size+
+!  .+BIGUNS          0 01.06 2004/09/01 2005/10/27 15:15  3735M
+!  .+$$$XSTAT        0 01.07 2009/10/19 2017/03/05 09:15   255M
+!  .+TWOMIL          0 01.00 2009/08/21 2009/08/21 15:24     2M
+!  .?HUNDREDK        1 01.00 2019/04/30 2019/04/30 09:00   100K
+!  .+NINENINE        0 01.00 2016/07/04 2016/07/04 07:04  99999
+!  .+MSPLU20         0 01.00 2009/09/23 2009/09/23 10:16   1041
+!  .+PGLITE          0 01.74 2019/04/16 2019/04/25 08:06    338
++
++  Syntax: %SORT?column              +
++
+% >INFO          +
++
++  Info will display dataset information similar to the ISPF
++  Utility Data set information option.
++
++   ---------------------- Data Set Information ----------------------
++  |                                                                  |
++  | ?Data Set Name: 'TRIDJK.MBRGEN2'+                                |
++  |                                                                  |
++  |  Volser:              MVSRES      Management Class:    **None**  |
++  |  Data set name type:  LIBRARY     Storage Class:       **None**  |
++  |  Data set version:    2           Data Class:          **None**  |
++  |  Directory Allocated: 0           Directory Used:      0         |
++  |  Record format:       FB          Extents Allocated:   8         |
++  |  Record length:       80          Extents Used:        0         |
++  |  Block size:          32720       Base Members:        47        |
++  |  Units:               TRACK       Generation Members:  31        |
++  |  Primary:             1           MaxGens:             5         |
++  |  Secondary:           2           System MaxGens:      20        |
++  |  Allocated:           15          Pages Used:          159       |
++  |  Used:                0           Pct Pages Utilized:  88        |
++  |  Orphans:             10          Dummies:             2         |
++  |                                                                  |
++   ------------------------------------------------------------------
++
++  Syntax: %Info                     +
++
++  Alias:  %Usage                    +
++
+% >VALIDATE      +
++
++  VALidate will invoke the IEBPDSE utility program to validate a
++  PDSE dataset.
++
++  An operand of CLEAN will direct IEBPDSE to remove any pending delete
++  members which are no longer needed.  This is done by using the
++  PARM=PerformPendingDelete option.
++
++  Syntax: %VALidate?operand         +
++
+% >SRCHFOR       +
++
++  SRCHfor will invoke the ISPF SuperC search utility.
++
++  Syntax: %SRCHFOR?'string'Ý,W¨
++                  ?        Ý,P¨
++                  ?        Ý,S¨
++                  ?            Ý,startcol¨
++                  ?                       Ý:laststartcol¨
++
++  Alias:  %SEArch                   +
++
+% >VERSION       +
++
++  VERSion will display the PGLITE version in the long message area.
++
++  Syntax: %VERSion                  +
++
++     ----------------------
++    | PGLITE®   2019-08-09 |
++     ----------------------
++
+% >/             +
++
++  / will display a point-and-shoot Hotlist Command pop-up panel
++  for you to select from.  Commands that can have operands will be
++  displayed in the continued entry panel.
++
++   -------------------------- Point-and-Shoot Hotlist ------------------------
++  |                                                                           |
++  |  Locate   - scroll to mbr: name       VALidate - validate with IEBPDSE    |
++  |  Select   - select member for edit    REFList  - ISPF reference list      |
++  |  Change   - switch datasets           SRCHfor  - search PDS (SuperC)      |
++  |  FLip     - switch to previous dsn    TPC      - the PDS command          |
++  |  REFresh  - rebuild the member list   VERSion  - show PGLITE version      |
++  |  Big      - switch to PDSEGEN         APars    - APARS for PDSE V2 MG     |
++  |  SORT     - sort by column            FAMS     - display FAMS variables   |
++  |  Find     - scroll to mbr/ name       HISt     - display PGLITE mods      |
++  |  RFind    - repeat Find               HIGen    - display dummy mbr info   |
++  |  Info     - dataset information       ORPHans  - display orphan members   |
++  |  CLIST    - view SuperC compare list  AGE      - display mbr age metrics  |
++  |  Real     - real names from backup    Hel      - Help for a command       |
++  |  ISPList  - write out member list     SPFX     - extract LoadISPF elements|
++   ---------------------------------------------------------------------------
++
++  Syntax: %/                        +
++
+% >AGE           +
++
++  AGE will display member age metrics.
++
++   ------------- Member Age Report -------------------
++  |                                                   |
++  |? Dataset: TRIDJK.MBRGEN2+                         |
++  |                                                   |
++  |    Members updated today                      0   |
++  |    Members updated yesterday                  2   |
++  |    Members updated this week                  6   |
++  |    Members updated in last 10 days            6   |
++  |    Members updated in 2 weeks                 6   |
++  |    Members updated this month                 9   |
++  |    Members updated in 2 months               17   |
++  |    Members updated this quarter              23   |
++  |    Members updated in 6 months               37   |
++  |    Members updated this year                 71   |
++  |    Members updated in 2 years                71   |
++  |    Members older than dirt                    9   |
++   ---------------------------------------------------
++
++  Syntax: %AGE                      +
++
++  Alias:  %METRICS                  +
++
+% >ALLOW         +
++
++  ALLOW will permit Edit of non-zero member generations.
++  Maybe you really do not want to do this. !Caution+is advised.
++
++  Syntax: %ALLOW                    +
++
+% >DISALLOW      +
++
++  DISALLOW will prevent Edit of non-zero member generations.
++  This is the default.
++
++  Syntax: %DISALLOW                 +
++
+% >APARS         +
++
++  APARS will display APARS for Member Generations.
++
++  Syntax: %APARS                    +
++
+% >QREF          +
++
++  QRef will display the PGLITE quick reference card.
++
++  Syntax: %QRef                     +
++
+% >FAMS          +
++
++  FAMS will display File Attribute Management Services variables.
++
++  One or more FAMS attribute variable names can be specified as an
++  operand.  If no variables are specified, all known attribute variables
++  are displayed.
++
++    FAMS attribute variable names (PDSE V2):
++
++    BLKSIZE   -  Block size
++    CATACB    -  Catalog ACB
++    CATNAME   -  Catalog name
++    CATVOL    -  Catalog volume
++    COMPIND   -  Compression indicator
++    DATACLAS  -  Data class
++    DEVTYP    -  Device type
++    DIRBLCKS  -  Directory blocks
++    DSCBTTR   -  DSCB TTR
++    DSCRDT2   -  Dataset creation date
++    DSEXDT2   -  Dataset expiration date
++    DSNVER    -  PDSE version number
++    DSORG     -  Dataset organization
++    ENTNAME   -  Entity name
++    ENTYPE    -  Entity type
++    FILESEQ   -  File sequence number
++    HARPN     -  Highest allocated relative page number
++    HURPN     -  Highest used relative page number
++    LIBSHROP  -  Library share options
++    LRECL     -  Logical record length
++    LTREFDAT  -  Dataset last reference date
++    MAXGENS   -  Maximum generations
++    MAXVOLS   -  Maximum volumes
++    MEMCOUNT  -  Member count
++    MGMTCLAS  -  Management class
++    MINUNITS  -  Minimum units
++    PAGSUSED  -  PDSE pages used
++    PDSEFLAG  -  PDSE flag
++    PDSEXFLG  -  PDSE extended flag
++    RECFM     -  Record format
++    SMSINFOM  -  SMS storage, data, and management class
++    SMSSCMC   -  SMS storage and management class
++    STORCLAS  -  Storage class
++    TOTGENCT  -  Total member generation count
++    TOTMEMCT  -  Total member count
++    VOLCOUNT  -  Volume count
++    VOLFLG    -  Volume flag
++    VOLFLG2   -  Volume flag 2
++    VOLLIST   -  Volume list
++    VOLSER    -  Volume serial
++
++
++  Syntax: %FAMS?operand             +
++
+% >±             +
++
++  Using a plus sign at the end of the command will cause the command
++  continued entry panel to be displayed.  You can enter up to 255
++  characters on that panel.
++
++  Syntax: %command±                 +
++
+% >HIST          +
++
++  HIST will display a history of PGLITE modifications.
++
++  Syntax: %HISt                     +
++
++  Alias:  %MODS                     +
++
+% >HIGEN         +
++
++  HIGEN will display the PDSEGENI dummy member records.  The member
++  name and absolute generation number are displayed in character or
++  hexadecimal.  Character is the default format.
++
++  A dummy member is a member that holds information about a previously
++  deleted member. That information includes the highest absolute
++  generation that was used for the member before it, or its generations
++  were deleted.
++
++  Syntax: %HIGen?Char/Hex           +
++
++  Alias:  %DEBUG                    +
++
+% >ORPHANS       +
++
++  ORPHANS will display the orphan members of a member generation PDSE.
++  These are members that do not have a corresponding base member.
++  Orphans can be created when a STOW C|D directory action is issued
++  for a base member name.
++
++  Syntax: %ORPHans                  +
++
+% >PROGRESS      +
++
++  PROGRESS ON enables a progress message pop-up while the member
++  list table is being built.  PROGRESS OFF disables the message
++  pop-up.  PROGRESS with no operand toggles the setting.  The
++  default is ON.
++
++  Syntax: %PROGress null/ON/OFF     +
++
++
+% >WB            +
++
++  WB invokes the PDSE Workbench component of IBM File Manager.
++
++  Syntax: %WB                       +
++
+% >TPC           +
++
++  The PDS Command.  A TSO command processor and ISPF dialog program.
++
++  Syntax: %TPC?subcommand operands  +
++
+% >PGLHELP       +
++
++  PGLHELP will display the PGLITE® TSO Help member.  This is
++  an alternative to the ISPF Tutorial panels you are reading now.
++  This was created so you can use the power of Edit to search with.
++
++  Syntax: %PGLHELP?command          +
++
++  Alias:  %HEL, H                   +
++
+% >CUP           +
++
++  The best for last.  Gloria, Gloria, ...
++
++  Syntax: %CUP                      +
++
+)Proc
+ &zcont = pgldirh
+)End
+>Panel PGLLOGO
+)BODY
+
+
+                          LL     IIII  TTTTTT  EEEEE
+                          LL      II     TT    EE
+                          LL      II     TT    EEEEE
+                          LL      II     TT    EE
+                          LLLLL  IIII    TT    EEEEE
+
+
++                                PDSEGEN Lite
+
+
+              Unlicensed Materials - Property of Underdog Software, LLC
+
+                  0000-UDS    COPYLEFT Underdog Software, LLC 2019
+                  US Government Users Unrestricted Rights -
+                  Use, duplication or disclosure unrestricted
+                  by GSA ADP Schedule Contract with UDS, LLC
+
+                             %ENTER+to continue
+)Proc
+ &zcont = pgldirh
+)End
+>Panel PGLBLUES
+)BODY
+   +       `yy+ooos+``yy+ooooooooooooooooooooooooooooooooooooooooood.
+            `oo+dmo+s``o++mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmh:o+
+             `/s/dmy/s-`s/yNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNho+s:`
+               :y/hNh/o+o/hmdddddddddddddddddddddddddddddddhs/-+d.
+                .y/ymmhhdmNmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmy:o/
+                 `s+omNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNmhs/oy-
+                  `+o+mNNNNNNNmdddddddddddddddddddddddddhyo-/y-
+   %STL Blues+     `/s/dNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNmdyo+o/`
+    % 2019  +        -s/yNNNNNNNNmdddddddddddddddddhys/:oy:`
+    %We Won +         .s+smNNNNNNmmmmmmmmmmmmmmmmmdhso+o/.
+    %The CUP+          `o+omNNNNNNNNNNNNNNNhsossoooo+/-`
+                        `+o+dNNmmNNmyssyyyys+:sh/-.`
+                          :s/hNm+/oss-+ho+++//::`
+                        ``.:y/ymm++y++/o-
+                   `.:/++oo+so:smmo+o`
+                 ./oooyyhddmmddhmNmy/s-
+                :s+ydmNNNNNNNNNNNNNNh/s:
+               .y/dNNNNNNNNNNNNNNNNNNd/h.
+               :soNNNNNNNNNNNNNNNNNNNN+s:
+               .y/dNNNNNNNNNNNNNNNNNNh/y.
+                -s+sdmNNNNNNNNNNNNmds+s-
+                 `:+oosyhddddddhysoo+:````
+                    .://++oooo++//-`  `-:+`
+
+)PROC
+if (.resp = 'ENTER')
+  .resp = 'END'
+)END
+>Panel PGLHOT
+)ATTR
+  ~  TYPE(TEXT) CAPS(OFF) COLOR(YELLOW)
+  !  TYPE(PS)
+)BODY WINDOW(77,14)
+
+ !Locate   -+scroll to mbr: name      !VALidate -+validate with IEBPDSE
+ !Select   -+select member for edit   !REFList  -+ISPF reference list
+ !Change   -+switch datasets          !SRCHfor  -+search PDS (SuperC)
+ !FLip     -+switch to previous dsn   !TPC      -+the PDS command
+ !REFresh  -+rebuild the member list  !VERSion  -+show PGLITE version
+ !Big      -+switch to PDSEGEN        !APars    -+APARS for PDSE V2 MG
+ !SORT     -+sort by column           !FAMS     -+display FAMS variables
+ !Find     -+scroll to mbr/ name      !HISt     -+display PGLITE mods
+ !RFind    -+repeat Find              !HIGen    -+display dummy mbr info
+ !Info     -+dataset information      !ORPHans  -+display orphan members
+ !CLIST    -+view SuperC compare list !AGE      -+display member age metrics
+ !Real     -+real names from backup   !Hel      -+Help for a command
+ !ISPList  -+write out member list    !SPFX     -+extract LoadISPF elements
+)INIT
+  &zwinttl = 'Point-and-Shoot Hotlist'
+)PNTS
+FIELD(ZPS00001) VAR(ZCMD) VAL('LOCATE +')
+FIELD(ZPS00002) VAR(ZCMD) VAL('VALIDATE +')
+FIELD(ZPS00003) VAR(ZCMD) VAL('SELECT +')
+FIELD(ZPS00004) VAR(ZCMD) VAL('REFLIST')
+FIELD(ZPS00005) VAR(ZCMD) VAL('CHANGE +')
+FIELD(ZPS00006) VAR(ZCMD) VAL('SRCHFOR +')
+FIELD(ZPS00007) VAR(ZCMD) VAL('FLIP')
+FIELD(ZPS00008) VAR(ZCMD) VAL('TPC +')
+FIELD(ZPS00009) VAR(ZCMD) VAL('REFRESH')
+FIELD(ZPS00010) VAR(ZCMD) VAL('VERSION')
+FIELD(ZPS00011) VAR(ZCMD) VAL('BIG +')
+FIELD(ZPS00012) VAR(ZCMD) VAL('APARS')
+FIELD(ZPS00013) VAR(ZCMD) VAL('SORT +')
+FIELD(ZPS00014) VAR(ZCMD) VAL('FAMS +')
+FIELD(ZPS00015) VAR(ZCMD) VAL('FIND +')
+FIELD(ZPS00016) VAR(ZCMD) VAL('HIST')
+FIELD(ZPS00017) VAR(ZCMD) VAL('RFIND')
+FIELD(ZPS00018) VAR(ZCMD) VAL('HIGEN')
+FIELD(ZPS00019) VAR(ZCMD) VAL('INFO')
+FIELD(ZPS00020) VAR(ZCMD) VAL('ORPHANS')
+FIELD(ZPS00021) VAR(ZCMD) VAL('CLIST')
+FIELD(ZPS00022) VAR(ZCMD) VAL('AGE')
+FIELD(ZPS00023) VAR(ZCMD) VAL('REAL')
+FIELD(ZPS00024) VAR(ZCMD) VAL('HEL +')
+FIELD(ZPS00025) VAR(ZCMD) VAL('ISPLIST')
+FIELD(ZPS00026) VAR(ZCMD) VAL('SPFX')
+)END
+>Panel PGLCONT
+)Attr DEFAULT(%+_)
+   %   TYPE(TEXT)  INTENS(HIGH) SKIP(ON)
+   +   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(TURQ)
+   !   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(RED)
+   ~   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(YELLOW)
+   ?   TYPE(TEXT)  INTENS(HIGH) SKIP(ON) COLOR(BLUE)
+   _   TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) HILITE(USCORE)
+   #   AREA(SCRL)  EXTEND(ON)
+)Body
++PGLITE®                      Continued Entry Panel
+%Command ===>_zcmd
+
+
+                             +
+
+
+ Note: you may resume entering the continued command on the above lines.
+)End
+>Panel PGLINFO
+)ATTR
+  ~  TYPE(OUTPUT) CAPS(OFF) COLOR(TURQ) JUST(ASIS)
+  @  TYPE(OUTPUT) CAPS(OFF) COLOR(BLUE)
+)BODY WINDOW(65,17)
+
+ @h1
+
+ ~l1
+ ~l2
+ ~l3
+ ~l4
+ ~l5
+ ~l6
+ ~l7
+ ~l8
+ ~l9
+ ~l10
+ ~l11
+ ~l12
+ ~l13
+)INIT
+  &ZWINTTL = 'Data Set Information'
+)END
+>Panel PGLGENI
+)ATTR
+  ~  TYPE(TEXT) CAPS(OFF) COLOR(TURQ)
+)BODY WINDOW(45,13)
+
+ ~  0     Successful invocation
+ ~ -1     No arguments found
+ ~ -2     DDNAME length error
+ ~ -3     DDNAME is all spaces
+ ~ -4     DDNAME is not allocated
+ ~ -5     Open error
+ ~ -6     IKJCT441 invocation error
+ ~ -7     DESERV invocation error
+ ~ -8     No SMDE entries
+ ~ -9     Library type is not a PDS or PDSE
+ ~ -11    IKJCT441 invocation error
+ ~ -12    IKJCT441 invocation error
+)INIT
+  &zwinttl = 'PDSEGENI Return Codes'
+)END
+>Panel PGLQREF
+)Attr Default(`+_)
+/* _ type( input) intens(high) caps(on ) just(left )               */
+   @ type( input) intens(high) caps(on ) just(left ) pad('_') color(turq)
+   ! type(text) intens(high) caps(off) just(asis ) color(white)
+   ` type(text) intens(high) caps(off) just(asis ) color(yellow)
+   ~ type(text) intens(high) caps(off) just(asis ) color(green) hilite(uscore)
+   # type(text) intens(high) color(blue) hilite(reverse)
+   + type(text) intens(low ) color(turq)
+     skip(on)
+   ¬ area(SCRL) Extend(ON)
+)Body Window(62,20)
+
+~Command+          ~Function+
+¬help ------------------------------------------------------¬
+)Area Help
+!Change dsname    -+Switch to another DSN
+!SRCHfor 'string' -+Search PDS with SuperC
+!FLip             -+Switch to previous DSN
+!REFresh          -+Refresh member list
+!CLIST            -+View SuperC compare listing
+!RFind            -+Repeat find
+!Find member      -+Scroll to mbr* in table
+!Locate member    -+Scroll to mbr: in table
+!REFList          -+Display last 30 DSNs referenced
+!DSn              -+Display PDSEGEN dataset history table
+!SORT col         -+Sort by column
+!Info             -+Dataset information
+!Select mbr gen   -+Select member for Edit
+!Real             -+PDSEGEN backup real names displayed
+!VALidate         -+Validate PDSE with IEBPDSE utility
+!Big filter       -+Switch to PDSEGEN
+!/                -+Hotlist command pop-up
+!ISPList          -+Write member list to ISPLOG
+!VERSion          -+Show PGLITE version
+!ALLOW            -+Allow Edit of non-0 generation members
+!DISALLOW         -+Disallow Edit of non-0 generation members
+!?                -+Display Help tutorial
+!Hel command      -+Display TSO Help for command
+!TPC subcmd       -+The PDS Command
+!HISt             -+Display PGLITE modifications
+!HIGen Char/Hex   -+Display dummy member records
+!ORPHans          -+Display orphan members
+!PROGress         -+Display progress during table build
+!AGE              -+Display member age metrics
+!FAMS attrvars    -+Display FAMS attribute variables
+`S               !-+Select member ( Edit, View non-0))
+`B               !-+Browse member
+`V               !-+View member
+`E               !-+Edit member
+`T               !-+Invoke TRYIT Edit macro
+`D               !-+Dump member entry (PDSEGENI fmt)
+`Z               !-+Compare non-0 gen to gen 0
+`/               !-+Line command  help
+`.               !-+View (cursor select)
+)Init
+&zwinttl = 'PGLITE Quick Reference'
+&zup = PGLQREF
+)Proc
+)End
+>Panel PGLAGE
+)Attr Default(%+_)
+   % type(text) intens(high) color(&clrw)
+   + type(text) intens(low ) color(&clrb)
+   ~ type(text) intens(high) caps(off) just(asis ) color(&clrh)
+     hilite(&clrhr)
+   _ type( input) intens(low ) just(left ) hilite(uscore) color(&clrw )
+   ^ type(output) intens(low) caps(off)  color(&clrh ) hilite(&clrhr)
+   ] type(output) intens(low) caps(off)  color(&clrh ) just(left)
+   [ type(output) intens(low) caps(off)  color(&clrh ) just(right)
+)Body window(60,15) expand(\\)
++
++Dataset:]dsn
++                                                +
++    Members updated today              [age1    +
++    Members updated yesterday          [age2    +
++    Members updated this week          [age3    +
++    Members updated in last 10 days    [age4    +
++    Members updated in 2 weeks         [age5    +
++    Members updated this month         [age6    +
++    Members updated in 2 months        [age7    +
++    Members updated this quarter       [age8    +
++    Members updated in 6 months        [age9    +
++    Members updated this year          [age10   +
++    Members updated in 2 years         [age11   +
++    Members older than dirt            [age12   +
+)Init
+ &zwinttl = 'Member Age Report'
+)Proc
+)End
+>Panel PGLAPARS
+)Attr DEFAULT(%+_)
+   %   TYPE(TEXT)  INTENS(HIGH) SKIP(ON)
+   +   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(TURQ)
+   !   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(RED)
+   ~   TYPE(TEXT)  INTENS(LOW)  SKIP(ON) COLOR(YELLOW)
+   @   TYPE(TEXT)  INTENS(HIGH) SKIP(ON) COLOR(BLUE)
+   _   TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) HILITE(USCORE)
+   #   AREA(SCRL)  EXTEND(ON)
+)Body EXPAND(\\)
+%Tutorial+\-\(%APARS for Member Generations+)\-\%Tutorial
+%Command ===>_ZCMD                                                             +
+#help ------------------------------------------------------------------------ #
+)Area Help
+ ~ OA47755+ Enhanced IEBPDSE
+           @**PTF UA77654 UA77655
+ ~ OA47799+ Enhanced IEBPDSE
+           @**PTF UA77654 UA77655
+ ~ OA50214+ IEBPDSE PerformPendingDelete issue
+           @**PTF UA81735 UA81736
+ ~ OA50699+ Help for TSO ALLOC does not document Library type 2
+           @**PTF UA82552 UA82553
+ ~ OA50904+ Rename member in member list and get message member
+            not found in error
+           @**PTF UA82415
+ ~ OA50962+ LMMDEL of a member with nogens then create same
+            member gets a gen -1
+           @**PTF UA82715
+ ~ OA51009+ Save NEWGEN or NOGEN in a non-member enabled
+            D/S gives no warning
+           @**PTF UA83739
+ ~ OA51014+ LMMREN leaves generations orphaned
+           @**PTF UA83479
+ ~ OA51027+ Browse scroll, or max, to end of member in PDSE
+            V2 results in 002 ABEND
+           @**PTF UA82619 UA82620
+ ~ OA51029+ Edit then save on non-0 gen gives no warning that
+            a newgen is not created (which cannot be accessed
+            via JCL or DYNALLOC
+           @**PTF UA83739
+ ~ OA51150+ View a non-0 generation and the message indicates
+            Edit
+           @**PTF UA83577
+ ~ OA51579+ PDSE Corruption with Message IEC911I. Various
+            causes.
+           @**PTF UA91068 UA91069
+ ~ OA51816+ Message ISRE679 may occur on an EDIT END for
+            non-PDSE after installation of fix for OA51009
+           @**PTF UA91166
+ ~ OA51760+ The DSINFO service does not include the ALIAS
+            count in the number of members for a PDSE
+           @**PTF UA83782
+ ! OA57897+ Oldest PDSE member generations can become
+            inaccessible using ISPF Edit/View/Browse
+           @**PTF UJ00126 UJ00999
+ ~ OA61930+ IEBCOPY with GENS=ALL on a large PDSE member generation
+            dataset results in 0C4 PIC 38 ABEND
+           @**PTF UJ06577 UJ06578 UJ06579
+)Proc
+ &zcont = pglapars
+)END
+>Panel PGLMSG
+)Attr Default(%+_)
+   ¬ type(output) intens(high) caps(off) color(green)
+)Body window(35,1) expand(\\)
+¬prog
+)Init
+  &zwinttl = 'Progress Information'
+)Proc
+)End
+>Panel PGLDSN
+)Attr Default(%+_)
+   _  TYPE(INPUT)   INTENS(HIGH) CAPS(ON)  JUST(LEFT)   HILITE(USCORE)
+   {  TYPE(TEXT)    INTENS(LOW)  SKIP(ON)  COLOR(BLUE)
+   }  TYPE(TEXT)    INTENS(LOW)  SKIP(ON)  COLOR(RED)
+   +  TYPE(TEXT)    INTENS(LOW)  SKIP(ON)  COLOR(GREEN)
+)Body window(66,3) expand(\\) cmd()
++
++Enter DSNAME%===>_dsname                                        +
++
+)Init
+  .cursor  = dsname
+  &zwinttl = 'PGLITE® Prompt'
+)Proc
+  *Rexx(*)
+        if left(dsname,1) = "'" & right(dsname,1) <> "'"  then
+          dsname = dsname"'"
+  *EndRexx
+  ver (&dsname,nb,dsname)
+  &zwinttl = ''
+)End
+>Exec GNAME
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      GNAME                                           *
+ *                                                            *
+ * Function:  Identify the Backup Member to the Real Member   *
+ *            and Generation                                  *
+ *                                                            *
+ * ISPF Edit Command:  GNAME                                  *
+ *                                                            *
+ * Author:    Lionel B. Dyck                                  *
+ *                                                            *
+ * History:                                                   *
+ *            07/31/16 - Creation (inspired by John Kalinich) *
+ *                                                            *
+ * ---------------------------------------------------------- *
+ * Copyright (c) 2017 by Lionel B. Dyck                       *
+ * ---------------------------------------------------------- */
+
+/* ------------------------------- *
+ * Get the Dataset and Member info *
+ * ------------------------------- */
+Address isredit
+'macro'
+'(member)  = member'
+'(dataset) = dataset'
+
+/* ----------------------------- *
+ * Now read in the $INDEX member *
+ * ----------------------------- */
+address tso
+gdd = 'gdd'random(99)
+if sysdsn("'"dataset"($index)'") /= 'OK' then do
+   zerrsm = 'Error'
+   zerrlm = 'The current dataset is not a PDSEGEN Backup' ,
+            'dataset so macro GNAME can do nothing.'
+   zerrhm   = 'PDSEGH0'
+   zerralrm = 'NO'
+   Address ISPExec 'Setmsg msg(isrz002)'
+   exit
+   end
+"alloc f("gdd") shr reuse ds('"dataset"($index)')"
+'execio * diskr 'gdd' (finis stem in.'
+'Free f('gdd')'
+
+/* ----------------------------------------------------- *
+ * Find the current member name (backup format) and then *
+ * insert a message with the real member name and        *
+ * absolute (relative) generation.                       *
+ * ----------------------------------------------------- */
+Address isredit
+do i = 1 to in.0
+   if word(in.i,1) > member then do
+      zerrsm = 'Error'
+      zerrlm = 'The current member is not a PDSEGEN Backup member.'
+      zerrhm   = 'PDSEGH0'
+      zerralrm = 'NO'
+      Address ISPExec 'Setmsg msg(isrz002)'
+      end
+   if word(in.i,1) /= member then iterate
+   parse value in.i with member real agen rgen .
+   text = 'Member name:' left(real,10) 'Generation:' agen'('rgen')'
+   "line_before .zfirst = noteline '"text"'"
+   exit
+   end
+>Exec PGLFIRST
+/* rexx */
+ISREdit 'macro'
+ISREdit 'save'
+ISREdit 'end'
+>Exec PGLRESET
+/* rexx */
+ISREdit 'macro'
+ISREdit 'reset'
+>Exec PGLCOMPZ
+/* rexx */
+ISREdit 'macro'
+ISREdit 'builtin compare * save'
+>Exec PGLFHELP
+/* rexx */
+ISREdit 'macro (arg)'
+ISREdit 'reset'
+if arg = '' then
+  nop
+else
+  ISREdit 'find ='arg
+>Exec PDSEGFND
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      pdsegfnd                                        *
+ *                                                            *
+ * Function:  Find string in non member generation PDS files  *
+ *            with SuperC Search-For. If dataset is a PDSEGEN *
+ *            backup data set, replace @nnnnnnn generated     *
+ *            name with real name and relative generation     *
+ *            in the Search-For output (NEWDD).               *
+ *                                                            *
+ * Syntax:    %pdsegfnd pdsedsn SRCHFOR-string                *
+ *                                                            *
+ * SRCHFOR-string:                                            *
+ *                                                            *
+ *       >>--'--string--'--+------+-------------------------> *
+ *                         +-,--W-+                           *
+ *                         +-,--P-+                           *
+ *                         +-,--S-+                           *
+ *       >--------------------------------------------------> *
+ *          +-,--start_column--+                              *
+ *                             +-:--last_start_column-+---->< *
+ *                                                            *
+ * History:                                                   *
+ *            08/05/19 - allow non member generation searches *
+ *            02/23/18 - change to use ispexec select         *
+ *            08/02/16 - created                              *
+ * ---------------------------------------------------------- */
+ arg pdsedsn string
+ parse value '' with null
+ Address ISPExec
+ if sysdsn(pdsedsn) /= 'OK' then do
+    zedsmsg = null
+    zedlmsg = 'Error.' pdsedsn sysdsn(pdsedsn)
+   'setmsg msg(isrz001)'
+   return
+   end
+ if left(pdsedsn,1) = "'" then do
+    wdsn = substr(pdsedsn,2,length(pdsedsn)-2)
+    end
+ else do
+      if sysvar('syspref') = null then hlq = sysvar('sysuid')
+                                else hlq = sysvar('syspref')
+      wdsn = hlq'.'pdsedsn
+      end
+ /*
+ do while string = ''
+    say 'Enter string for search of member generation backup file'
+    pull string
+ end
+ if left(string,1) = "'" then do
+    string = substr(string,2,length(string)-2)
+    end
+ */
+
+Process_Find:
+
+ call read_$index
+ call superc_srchfor
+ exit
+
+Read_$Index:
+ @names. = null
+ if sysdsn("'"wdsn"($index)'") /= "OK" then do
+ /* zedsmsg = 'Error'
+    zedlmsg = 'Error.' "'"wdsn"($index)'" sysdsn("'"wdsn"($index)'") */
+    Address ISPExec
+    "dsinfo dataset('"wdsn"')"
+    if zdsngen = 0 then     /* allow non member generations */
+      return
+    zedsmsg = ''
+    zedlmsg = 'The current dataset is a member generation PDSE.',
+              'SRCHFOR is valid for non-MG PDSE and PDS files.'
+    Address ISPExec
+   'setmsg msg(isrz001)'
+   exit
+   end
+ Address TSO
+ "alloc f($index) da('"wdsn"($index)') shr reuse"
+ 'execio * diskr $index (stem index. finis'
+ do im = 1 to index.0
+    parse value index.im with backup_name real_name abs_gen rel_gen .
+    @names.backup_name = Left(real_name,8) right(rel_gen,5)
+    end
+ 'free f($index)'
+ return
+
+SuperC_Srchfor:
+ Address ISPExec
+ 'vget (zscreen) shared'
+ pdstname = 'RESULT'zscreen
+ Address TSO
+ x = outtrap('delete.','*')
+ 'delete srchfor.'pdstname
+ x= outtrap('off')
+ 'alloc f(sysin) unit(vio) new reuse space(1,1) tracks',
+   'lrecl(80) recfm(f b) blksize(0) dsorg(ps)'
+ if pos("'",string) > 0 then
+   push "SRCHFOR "string
+ else
+   push "SRCHFOR '"string"'"
+ queue ""
+ 'execio * diskw sysin (finis'
+ 'delstack'
+ "alloc f(newdd) da('"wdsn"') shr reuse"
+ 'alloc f(outdd) da(srchfor.'pdstname') new reuse unit(sysallda)',
+   'space(15,15) tracks recfm(f b a) lrecl(132) blksize(0) dsorg(ps)'
+ parm = 'SRCHCMP,ANYC,NOPRTCC'
+ Address ISPExec 'Select pgm(isrsupc) Parm('parm')'
+ 'execio * diskr outdd (stem pds. finis'
+ Address TSO
+ 'alloc f(sysin) da(*) shr reuse'
+ 'free  f(newdd)'
+ 'free  f(outdd) delete'
+
+ do fi = 1 to pds.0
+ if substr(pds.fi,2,1) = '@' then
+    do
+      target = substr(pds.fi,2,8)
+      repl_name = left(@names.target,8)
+      repl_gen  = substr(@names.target,10,5)
+      pds.fi = ' 'target repl_name repl_gen '    ' substr(pds.fi,30,45)
+      end
+    end
+ x = pds.0 -6
+ hits = substr(pds.x,26,10)
+ zerrsm = right(hits,10)||' hits'
+ zerrlm = "String "strip(string)" found in "strip(hits)" members"
+ zerralrm = 'NO'
+ zerrhm = 'pgldirh'
+ Address ISPExec
+ 'setmsg msg(isrz002)'
+
+ Address TSO
+ dd = '$'right(time("s"),7,"0")     /* create unique ddname */
+ 'alloc f('dd') unit(vio) new reuse space(10,10) tracks',
+       'lrecl(255) recfm(f b) blksize(0) dsorg(ps)'
+ 'execio * diskw' dd '(finis stem pds.'
+ Address ISPExec
+ 'lminit dataid(id) ddname('dd') enq(exclu)'
+ if rc ¬= 0 then do
+    zedsmsg = 'Error'
+    zedlmsg = 'Error.  LMINIT failed for VIO output file'
+   'setmsg msg(isrz001)'
+   exit
+   end
+ 'view   dataid('id')'
+ 'lmfree dataid('id')'
+ return
+/* End of PDSEGFND exec */
+>Exec PDSEGVAL
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      pdsegval                                        *
+ *                                                            *
+ * Function:  Validate the PDSE using IEBPDSE                 *
+ *                                                            *
+ * Syntax:    %pdsegval pdsedsn clean                         *
+ *                                                            *
+ *            pdsedsn is the pdse dataset name                *
+ *            clean forces pending delete cleanup             *
+ *                                                            *
+ * Author:    John Kalinich                                   *
+ *            Lionel B. Dyck                                  *
+ *                                                            *
+ * History:                                                   *
+ *            11/06/17 - Enhance the IEBPDSE Report           *
+ *                     - Use Browse instead of View for report*
+ *            09/12/16 - Removed parm of flush unless Clean   *
+ *                       is specified. See OA50214.           *
+ *            09/08/16 - Changed call to IEBPDSE and added    *
+ *                       Parm of FLUSH                        *
+ *                     - Change allocation for report dd      *
+ *            08/23/16 - Add sysin dd allocation to make      *
+ *                       sure it is dummy                     *
+ *            08/16/16 - Update by Lionel to add optional     *
+ *                       parm of PERFORMPENDINGDELETE         *
+ *                       which forces a cleanup               *
+ *            08/01/16 - Minor changes by Lionel Dyck         *
+ *            08/01/16 - Creation                             *
+ *                                                            *
+ * ---------------------------------------------------------- */
+ arg pdsedsn clean
+
+/* --------------- *
+ * Define defaults *
+ * --------------- */
+ zerrhm   = 'pgldirh'
+ zerralrm = 'NO'
+ null     = ''
+
+/* ---------------------------- *
+ * Test for a PDSE dataset name *
+ * ---------------------------- */
+ Address ISPExec
+ if sysdsn(pdsedsn) /= 'OK' then do
+    zerrsm = null
+    zerrlm = 'Error.' pdsedsn sysdsn(pdsedsn)
+   'setmsg msg(isrz002)'
+   return
+   end
+
+/* ----------------------------------- *
+ * Fixup PDSE dataset name if required *
+ * ----------------------------------- */
+ if left(pdsedsn,1) = "'" then do
+    wdsn = substr(pdsedsn,2,length(pdsedsn)-2)
+    end
+ else do
+      if sysvar('syspref') = null then hlq = sysvar('sysuid')
+                                else hlq = sysvar('syspref')
+      wdsn = hlq'.'pdsedsn
+      end
+
+/* -------------------------------------------- *
+ * Check for the clean option and if found then *
+ * set the parm to PERFORMPENDINGDELETE         *
+ * -------------------------------------------- */
+ if clean /= null
+    then parm = 'FLUSH,PERFORMPENDINGDELETE'
+    else parm = ''
+
+/* -------------------- *
+ * Call IEBPDSE routine *
+ * -------------------- */
+ call iebpdse
+ exit
+
+/* --------------- *
+ * IEBPDSE routine *
+ * --------------- */
+IEBpdse:
+/* ------------------------------------- *
+ * Build temp dataset for IEBPDSE Report *
+ * ------------------------------------- */
+ 'vget (zscreen) shared'
+ result = 'RESULT'zscreen
+
+/* ------------ *
+ * Call IEBPDSE *
+ * ------------ */
+ Address TSO
+ x = outtrap('delete.','*')
+ 'delete iebpdse.'result
+ x= outtrap('off')
+ "alloc f(syslib) da('"wdsn"') shr reuse"
+ 'alloc f(sysprint) new reuse unit(sysallda)',
+   'space(1,1) tracks'
+ 'alloc f(sysin) dummy reuse'
+ "call *(iebpdse) '"parm"'"
+
+ 'Execio * diskr sysprint (finis stem sysp.'
+ rpt.1 = center('IEBPDSE Report',50)
+ rpt.2 = center('Date:' date() 'Time:' time(),50)
+ rpt.3 = center("PDSE:" wdsn,50)
+ if parm = null then parm = 'None'
+ rpt.4 = center("Parms:" parm,50)
+ rpt.5 = center("System:" mvsvar('sysname'),50)
+ rpt.6 = ' '
+ c = 6
+ do i = 1 to sysp.0
+    c = c + 1
+    rpt.c = sysp.i
+    end
+ rpt.0 = c
+ 'Execio * diskw sysprint (finis stem rpt.'
+
+/* ------------------------------- *
+ * Display the report using Browse *
+ * ------------------------------- */
+ Address ISPExec
+ 'lminit dataid(id) ddname(sysprint) enq(exclu)'
+ if rc ¬= 0 then do
+    zerrsm = 'Error'
+    zerrlm = 'Error.  LMINIT failed for SYSPRINT'
+   'setmsg msg(isrz002)'
+   exit
+   end
+ 'Browse   dataid('id')'
+ 'lmfree dataid('id')'
+
+ Address TSO
+'free  f(syslib sysprint)'
+'alloc f(sysin) ds(*) reuse'
+ return
+>Exec PGLFAMSX
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      pglfamsx                                        *
+ *                                                            *
+ * Function:  Call the FAMS extract program                   *
+ *                                                            *
+ * Syntax:    %pglfamsx dsn famsarg                           *
+ *                                                            *
+ *            dsn is the pdse dataset name                    *
+ *            famsarg is the fams attribute names             *
+ *                                                            *
+ * Author:    John Kalinich                                   *
+ *            Dan Dalby                                       *
+ *                                                            *
+ * History:                                                   *
+ *            10/10/19 - Creation                             *
+ *                                                            *
+ * ---------------------------------------------------------- */
+  parse arg dsn famsarg
+  vpgm = 'browse'
+  Address TSO
+  'newstack'
+  queue 'DSN='dsn
+  if famsarg <> '' then
+    fopt = famsarg
+  else
+  /* Attributes defined in module IGWAFMS0 IGWAMAMT on LPALIB */
+  fopt='ACCESS   ACTOKEN  ADDVOL   AKEYPOS  AMDSBCAT ATIME    ATTRFLGS',
+       'ATTR1    ATTR2    BLKSIZE  BUFSIZE  CATACB   CATNAME  CATVOL  ',
+       'CCSID    CHARSCNT CHKPTTKN CISIZE   COMPIND  COMUDSIZ CTIME   ',
+       'DATACLAS DDMATTR  DEVTYP   DFMATTR  DFMFLGS  DFMPREC  DIRBLCKS',
+       'DPASALL  DSATTR   DSCBTTR  DSCRDT2  DSEXDT2  DSNVER   DSORG   ',
+       'ENTNAME  ENTYPE   EXCPEXIT EXTATTR  FILBYTSZ FILCLS   FILCLSC ',
+       'FILEDATA FILESEQ  FILESIZE FILPRT   FUZZYBK1 FUZZYBK2 FUZZYBK3',
+       'GID      HARPN    HURBADS  HURPN    KEYLNGTH KEYPOS   LIBSHROP',
+       'LOGPARMS LOGSTRID LRECL    LTBACKDT LTCHGDAT LTCHGTIM LTREFDAT',
+       'LTUPDUSR MAXARNB  MAXGENS  MAXVOLS  MEMCOUNT MEMMODLV MEMRECCT',
+       'MEMVRSN  MGMTCLAS MICKEY   MINUNITS MTIME    NAME     NAMEDS  ',
+       'NEWNAME  OWNERID  PAGSUSED PASSATMP PASSPRMT PASSWALL PASSWORD',
+       'PDFREC   PDSEFLAG PDSEXFLG PRIMSPAC RCDCOUNT RECFM    RECVTIME',
+       'RECVTIMG REMVOL   RGATTR   RLSBWO   RLSFLAGS SCONSPAC SECFLAGS',
+       'SMSINFOM SMSSCMC  SMSSFLAG SPACOPTN SPACPARM STORCLAS STRIPCNT',
+       'SZTME    TEXTCHNG TITLE    TOTGENCT TOTMEMCT TYPE     UDATASIZ',
+       'UID      USERAREC USVRMDUL VOLCOUNT VOLFLG   VOLFLG2  VOLKRQF ',
+       'VOLLIST  VOLSER   VOLVRBA  VSAMMRSZ VSAMNREC VSAMREUS VSAMTYPE',
+       'VVRNFLGS VVRRDATA VVRROWNR VVRSHWRN VVRSHWRV VVRSMSFG XACIFLAG',
+       'XHURBADS'
+  do while fopt <> ''
+    parse var fopt option fopt
+    queue option
+    end
+  queue
+  'alloc f(sysin) unit(vio) new reuse space(1,1) tracks',
+    'lrecl(80) recfm(f b)'
+  'execio * diskw sysin (finis'
+  'delstack'
+  'alloc f(sysprint) unit(vio) new reuse space(1,1) tracks',
+    'lrecl(121) recfm(f b a)'
+  Address ISPExec
+  'control errors return'
+  'select pgm(famsextr)'
+  if rc = 20 then do
+    Address ISPExec
+    zerralrm = 'NO'
+    zerrsm = 'FAMSEXTR not found'
+    zerrlm = 'Install FAMSEXTR program from CBT 182 FAMSXMIT file'
+    zerrhm = 'pgldirh'
+    'setmsg msg(isrz002)'
+    return
+    end
+/* ------------------------------- *
+ * Display the report using Browse *
+ * ------------------------------- */
+  Address ISPExec
+  'lminit dataid(id) ddname(sysprint) enq(exclu)'
+  if rc ¬= 0 then do
+     zerrsm = 'Error'
+     zerrlm = 'Error.  LMINIT failed for SYSPRINT'
+    'setmsg msg(isrz002)'
+    exit
+    end
+  vpgm 'dataid('id')'
+  'lmfree dataid('id')'
+  Address TSO
+  "free  f(sysprint sysin)"
+  "alloc f(sysprint) da(*) shr reuse"
+  "alloc f(sysin)    da(*) shr reuse"
+  return
+>Exec PGLX
+/* --------------------  rexx procedure  -------------------- *
+ * Name:      pglx                                            *
+ *                                                            *
+ * Function:  Dynamically allocate the PGLITE libraries       *
+ *            for faster start-up.  The members were          *
+ *            harvested from the PGLITE rexx exec and         *
+ *            added to permanent libraries with the aid of    *
+ *            the SPFX command.                               *
+ *                                                            *
+ * Custom:    LoadISPF, DropISPF, panels, execs, and          *
+ *            skeletons should be removed or nullified        *
+ *            in PGLITE.  Skeldd should be overridden by      *
+ *            the do_pgxlite routine.                         *
+ *                                                            *
+ *  Change..> DropISPF: Procedure; return 0    /* PGXLITE */  *
+ *  Change..> LoadISPF: Procedure; return 0    /* PGXLITE */  *
+ *                                                            *
+ *  After...> parse var load_info . . . . skeldd .            *
+ *  Add.....> call do_pgxlite                  /* PGXLITE */  *
+ *  After...> parse var load_info . . . . skeldd .            *
+ *  Add.....> call do_pgxlite                  /* PGXLITE */  *
+ *                                                            *
+ * Syntax:    %pglx pdse-library                              *
+ *                                                            *
+ *            pdse-library is optional and if not provided    *
+ *            will present a prompt to the user               *
+ *                                                            *
+ * Author:    Janko                                           *
+ *                                                            *
+ * History:                                                   *
+ *            11/16/19 - Creation                             *
+ *            01/16/21 - Add hlq                              *
+ *                                                            *
+ * ---------------------------------------------------------- *
+ * Copyleft (c) 2021 by The ISPF Cabal - Vive la revolution   *
+ * ---------------------------------------------------------- */
+ arg pdselib
+ x = time('r')         /* Initialization for Elapsed Time */
+ hlq = "hlq.PGXLITE"
+ address tso
+ "altlib activate dataset('"hlq".exec') application(exec)"
+ address ispexec
+ 'control errors return'
+ "libdef ispslib dataset id('"hlq".skels') stack"
+ "libdef ispplib dataset id('"hlq".panels') stack"
+ call elapsed_time
+ say right(et,8)
+ 'Select cmd(%pgxlite' pdselib ') scrname(pgxlite)'
+ 'libdef ispslib'
+ 'libdef ispplib'
+ address tso
+ 'altlib deactivate application(exec)'
+ exit
+
+ /* --------------------------------- *
+  | Elapsed time routine              |
+  * --------------------------------- */
+   elapsed_time:
+    ss = time('e')
+    parse value ss with x"."sec
+    sf = bitor(format(trunc(ss//60),2),'F0'x)
+    mm = format(trunc(ss/60),2)
+    mf = bitor(format(trunc(mm//60),2),'F0'x)
+    hh = bitor(format(trunc(mm/60),2),'F0'x)
+    et = hh||":"||mf||":"sf"."left(sec,2)
+    return
+>Skel PGLHELP
+)F Function -
+ The PGLITE exec supports PDSE V2 member generations and is based on
+ the critically acclaimed Lionel B. Dyck PDSEGEN dialog which runs
+ under the ISPF Dialog Manager.
+
+ PGLITE is a simpler version, or subset, of PDSEGEN.
+
+ ---
+ Copyleft (C) 2020-2021, Janko Kalinic
+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+   http://www.gnu.org/licenses/
+)X Syntax -
+     %PGLITE dsname
+
+ Aliases  - none.
+ Required - dsname
+)O Operands -
+  dsname       - specifies the data set name.  If the data set name is
+                 not entered in quotes ('), your TSO PREFIX will be
+                 appended to the start of the entered data set name.
+)S Subcommands:
+   /           - Hotlist commands pop-up
+   Locate mbr  - scroll to mbr: name
+   Select mbr  - select member for edit
+   Change dsn  - switch datasets
+   FLip        - switch to previous dataset
+   REFresh     - rebuild the member list
+   Big filter  - switch to PDSEGEN
+   SORT column - sort by column
+   Find mbr    - scroll to mbr/ name
+   RFind       - repeat Find
+   Info        - dataset information
+   CLIST       - view SuperC compare listing
+   Real        - use real names from PDSEGEN backup
+   ISPList     - write out member list to ISPLIST
+   VALidate cl - validate with IEBPDSE
+   REFList     - ISPF reference list (datasets)
+   SRCHfor     - search PDS (SuperC)
+   TPC subcmd  - the PDS command
+   VERSion     - show PGLITE version
+   APars       - APARS for PDSE V2 MG
+   FAMS        - display FAMS variables
+   HISt        - display PGLITE modification history
+   HIGen       - display PDSE V2 MG dummy member info
+   ORPHans     - display orphan members
+   PROGress    - display progress message
+   QRef        - display PGLITE quick reference
+   SPFX        - extract LoadISPF elements
+   AGE         - display member age metrics
+   ALLOW       - permit Edit of non-zero member generations
+   DISALLOW    - prevent Edit of non-zero member generations
+   WB          - PDSE Workbench (IBM File Manager)
+   Hel cmd     - Help for a command
+   ?           - UDS logo
+   CUP         - Gloria, Gloria, ...
+=LOCATE
+)F Function -
+
+ Locate will locate the mbr: value in the Name column.
+ The member list will be positioned to the closest matching row.
+
+)X Syntax - Locate value
+ Defaults - If value is null, last member name edited.
+
+=FIND
+)F Function -
+
+Find will find the mbr/ value in the Name column.
+
+)X Syntax - Find value
+
+=RFIND
+)F Function -
+
+Repeat Find will find the next mbr/ value in the Name column.
+
+The ISPF command table must have a user controlled variable for RFIND
+in order for this to work properly.
+
+    Verb      T  Action
+                    Description
+    RFIND     0  &USRRFIND
+                    User controlled variable for RFIND
+    RFIND     0  SETVERB
+                    REPEAT FIND
+
+If you can not update the installation ISPF command table, here is
+a rexx solution you can add to PGLITE early on in the exec.
+
+    zctverb  = "RFIND"
+    zcttrunc = 0
+    zctact   = "&USRRFIND"
+    zctdesc  = "User controlled variable for RFIND"
+    'vget (zsctpref)'
+    ctab = zsctpref'cmds'
+    'tbtop' ctab
+    'tbsarg' ctab
+    'tbscan' ctab 'arglist(zctdesc) condlist(EQ) Next'
+    if rc > 0 then 'tbadd' ctab
+    usrrfind = null
+    'vput (usrrfind)'
+
+)X Syntax - RFind
+
+=CHANGE
+)F Function -
+
+Change will allocate and switch to another DSNAME.
+
+)X Syntax - Change dsname
+
+A "CHANGE .llq" command will allocate and switch using the current
+DSNAME with the low-level qualifier (llq) substituted.
+
+  <Before>
+    PGLITE®                  AD.RACFADM.EXEC
+    Command ===> change .panels
+
+  <After>
+    PGLITE®                  AD.RACFADM.PANELS
+    Command ===>
+
+If you omit a trailing apostrophe, one will be assumed.
+
+=FLIP
+)F Function -
+
+FLip will switch to the previously allocated PDS that was used.
+
+)X Syntax - FLip
+
+=REFLIST=IRL
+)F Function -
+
+REFList will invoke the ISPF Reference list dialog showing the
+last 30 referenced datasets.  Any dataset in the list can be
+selected and switched to.
+
+The MORE command can be used to display other Personal Data Set Lists.
+
+)X Syntax - REFList
+
+   Aliases  - IRL
+
+=REFRESH
+)F Function -
+
+REFresh will refresh the member list by reinvoking the PDSEGENI
+DESERV routine to read the PDS directory.  Non-zero generation
+members are displayed in blue, and zero generation members are
+displayed in cyan.
+
+)X Syntax - REFresh
+
+=SELECT
+)F Function -
+
+Select will invoke ISPF Edit for a given member and generation.
+
+A REFresh will be performed after an Edit SAVE operation, thus
+updating the generation member numbers in the display.  Enter a
+Locate command with no operand to position back to the member
+that was saved.
+
+)X Syntax - Select member generation
+
+=BIG
+)F Function -
+
+BIG will invoke the critically acclaimed Lionel B. Dyck PDSEGEN
+dialog.
+
+If no filter is specified, the default is the member name after the
+member list header.  The rationale being faster entry into PDSEGEN.
+
+You can combine BIG with a PDSEGEN primary command using the ISPF
+command delimiter, such as the following:
+
+  big;backup
+  big;restore
+  big;copy
+  big;model
+  big;prune
+
+)X Syntax - Big filter
+
+=CLIST
+)F Function -
+
+CLIST will view the last SuperC Compare listing generated by the
+Z line command (Edit Compare non-0 gen to gen 0).
+
+)X Syntax - CLIST
+
+=REAL
+)F Function -
+
+Real will change the member list display to reflect the real member
+name and generation contained in the PDSEGEN backup dataset.
+
+)X Syntax - Real
+
+Before:
+
+   -----------------------------------------------------------
+  |   PGLITE®                TRIDJK.MBRGEN2.BACK              |
+  |   Command ===>                                            |
+  |                                                           |
+  |     Name       GenNum VV MM  Created     Changed          |
+  |   . $ALLOC            01.00 2019/06/06 2019/06/06 11:27   |
+  |   . $BACKUP           01.00 2019/06/06 2019/06/06 11:27   |
+  |   . $INDEX            01.00 2019/06/06 2019/06/06 11:27   |
+  |   . @0000001          01.01 2019/05/30 2019/06/06 06:46   |
+  |   . @0000002          01.03 2019/05/30 2019/06/06 08:00   |
+  |   . @0000003          01.02 2019/05/30 2019/05/30 10:52   |
+  |   . @0000004          01.07 2009/10/19 2017/03/05 09:15   |
+  |   . @0000005          01.00 2019/05/21 2019/05/21 07:16   |
+  |   . @0000006          01.01 2019/05/21 2019/05/21 07:24   |
+  |   . @0000007          01.02 2019/05/21 2019/05/28 11:39   |
+   -----------------------------------------------------------
+
+After:
+
+   -----------------------------------------------------------
+  |   PGLITE®                TRIDJK.MBRGEN2.BACK              |
+  |   Command ===>                                            |
+  |                                                           |
+  |     Name       GenNum VV MM  Created     Changed          |
+  |   . $ALLOC            01.00 2019/06/06 2019/06/06 11:27   |
+  |   . $BACKUP           01.00 2019/06/06 2019/06/06 11:27   |
+  |   . $INDEX            01.00 2019/06/06 2019/06/06 11:27   |
+  |   . $$$$$$$$        4 01.01 @0000001   2019/06/06 06:46   |
+  |   . $$$$$$$$        5 01.03 @0000002   2019/06/06 08:00   |
+  |   . $$$$$$$$        0 01.02 @0000003   2019/05/30 10:52   |
+  |   . $$$XSTAT        0 01.07 @0000004   2017/03/05 09:15   |
+  |   . $REAL           1 01.00 @0000005   2019/05/21 07:16   |
+  |   . $REAL           2 01.01 @0000006   2019/05/21 07:24   |
+  |   . $REAL           0 01.02 @0000007   2019/05/28 11:39   |
+   -----------------------------------------------------------
+
+=ISPLIST
+)F Function -
+
+ISPList will write out the member list to the ISPLIST file.
+
+)X Syntax - ISPList
+
+=SORT
+)F Function -
+
+SORT will sort the member list by column.  SORT invokes Unix SORT
+and the direction is pre-determined for best results.  SORT column
+headers are underscored and point-and-shoot.
+
+Extended ISPF statistics are sorted into order and displayed with
+scaling factors (M=million, K=thousand) in Size field if necessary.
+
+SORT Size:
+
+   ------------------------------------------------------------------
+  |   PGLITE®                TRIDJK.MBRGEN2                          |
+  |   Command ===>                                                   |
+  |                                                                  |
+  |     Name       GenNum VV MM  Created     Changed          Size   |
+  |   . BIGUNS          0 01.06 2004/09/01 2005/10/27 15:15  3735M   |
+  |   . $$$XSTAT        0 01.07 2009/10/19 2017/03/05 09:15   255M   |
+  |   . TWOMIL          0 01.00 2009/08/21 2009/08/21 15:24     2M   |
+  |   . HUNDREDK        1 01.00 2019/04/30 2019/04/30 09:00   100K   |
+  |   . NINENINE        0 01.00 2016/07/04 2016/07/04 07:04  99999   |
+  |   . MSPLU20         0 01.00 2009/09/23 2009/09/23 10:16   1041   |
+  |   . PGLITE          0 01.74 2019/04/16 2019/04/25 08:06    338   |
+   ------------------------------------------------------------------
+
+)X Syntax - SORT column
+
+=INFO=USAGE
+)F Function -
+
+Info will display dataset information similar to the ISPF
+Utility Data set information option.
+
+   ---------------------- Data Set Information ------------------------
+  |                                                                    |
+  |   Data Set Name: 'TRIDJK.MBRGEN2'                                  |
+  |                                                                    |
+  |   Volser:              MVSRES      Management Class:    **None**   |
+  |   Data set name type:  LIBRARY     Storage Class:       **None**   |
+  |   Data set version:    2           Data Class:          **None**   |
+  |   Directory Allocated: 0           Directory Used:      0          |
+  |   Record format:       FB          Extents Allocated:   8          |
+  |   Record length:       80          Extents Used:        0          |
+  |   Block size:          32720       Base Members:        47         |
+  |   Units:               TRACK       Generation Members:  31         |
+  |   Primary:             1           MaxGens:             5          |
+  |   Secondary:           2           System MaxGens:      20         |
+  |   Allocated:           15          Pages Used:          159        |
+  |   Used:                0           Pct Pages Utilized:  88         |
+  |   Orphans:             10          Dummies:             2          |
+  1                                                                    |
+   --------------------------------------------------------------------
+
+)X Syntax - Info
+
+   Aliases  - Usage
+
+=VALIDATE
+)F Function -
+
+VALidate will invoke the IEBPDSE utility program to validate a
+PDSE dataset.
+
+An operand of CLEAN will direct IEBPDSE to remove any pending delete
+members which are no longer needed.  This is done by using the
+PARM=PerformPendingDelete option.
+
+)X Syntax - VALidate operand
+
+=SRCHFOR=SEARCH
+)F Function -
+
+SRCHfor will invoke the ISPF SuperC search utility.  Search is only
+valid for non-member generation PDSE and PDS files.
+
+)X Syntax - SRCHFOR 'string'Ý,W¨
+                            Ý,P¨
+                            Ý,S¨
+                                Ý,startcol¨
+                                           Ý:laststartcol¨
+
+   Aliases  - SEArch
+)O Operands -
+))string
+        The character or hexadecimal string to be searched for (enclosed
+        by apostrophes). Use two consecutive apostrophes ('') for one
+        apostrophe within the search string.
+))W
+        Word.   String must appear as a separate word. That is, be
+        delimited by one or more spaces or special characters.
+))P
+        Prefix. String must appear as the first part of some other text.
+))S
+        Suffix. String must appear as the last part of some other text.
+))start_column
+        The column in which the string must start for the search to
+        be successful.  (If a last_start_column is also specified,
+        see description for that operand.)
+))last_start_column
+        The "latest" column in which the string can start for the
+        search to be successful.  (Must be separated from the
+        start_column by a colon.)
+
+=VERSION=ABOUT
+)F Function -
+
+VERSion will display the PGLITE version in the long message area.
+
+)X Syntax - VERSion
+
+   Aliases  - ABOUT
+
+   ----------------------
+  | PGLITE®   2019-08-09 |
+   ----------------------
+
+=/=O=HOTLIST
+)F Function -
+
+/ will display a point-and-shoot Hotlist Command pop-up panel
+for you to select from.  Commands that can have operands will be
+displayed in the continued entry panel.
+
+   ---------------------- Point-and-Shoot Hotlist -----------------------
+  |                                                                      |
+  | Locate  - scroll to mbr: name     VALidate - validate with IEBPDSE   |
+  | Select  - select member for edit  REFList  - ISPF reference list     |
+  | Change  - switch datasets         SRCHfor  - search PDS (SuperC)     |
+  | FLip    - switch to previous dsn  TPC      - the PDS command         |
+  | REFresh - rebuild the member list VERSion  - show PGLITE version     |
+  | Big     - switch to PDSEGEN       APars    - APARS for PDSE V2 MG    |
+  | SORT    - sort by column          FAMS     - display FAMS variables  |
+  | Find    - scroll to mbr/ name     HISt     - display PGLITE mods     |
+  | RFind   - repeat Find             HIGen    - display dummy mbr info  |
+  | Info    - dataset information     ORPHans  - display orphan members  |
+  | CLIST   - view SuperC compare     AGE      - display mbr age metrics |
+  | Real    - real names from backup  Hel      - Help for a command      |
+  | ISPList - write out member list   SPFX     - extract LoadISPF mbrs   |
+   ----------------------------------------------------------------------
+
+)X Syntax - /
+
+=AGE
+)F Function -
+
+AGE will display member age metrics.
+
+   -------------- Member Age Report ------------------
+  |                                                   |
+  |  Dataset: TRIDJK.MBRGEN2                          |
+  |                                                   |
+  |    Members updated today                      0   |
+  |    Members updated yesterday                  2   |
+  |    Members updated this week                  6   |
+  |    Members updated in last 10 days            6   |
+  |    Members updated in 2 weeks                 6   |
+  |    Members updated this month                 9   |
+  |    Members updated in 2 months               17   |
+  |    Members updated this quarter              23   |
+  |    Members updated in 6 months               37   |
+  |    Members updated this year                 71   |
+  |    Members updated in 2 years                71   |
+  |    Members older than dirt                    9   |
+   ---------------------------------------------------
+
+)X Syntax - AGE
+
+   Aliases  - METRICS
+
+=ALLOW
+)F Function -
+
+ALLOW will permit Edit of non-zero member generations.
+Maybe you really do not want to do this.  Caution is advised.
+
+)X Syntax - ALLOW
+
+=DISALLOW
+)F Function -
+
+DISALLOW will prevent Edit of non-zero member generations.
+This is the default.
+
+)X Syntax - DISALLOW
+
+=FAMS
+)F Function -
+
+FAMS will display File Attribute Management Services variables.
+
+One or more FAMS attribute variable names can be specified as an
+operand.  If no variables are specified, all known attribute variables
+are displayed.
+
+  FAMS attribute variable names (PDSE V2):
+
+  BLKSIZE   -  Block size
+  CATACB    -  Catalog ACB
+  CATNAME   -  Catalog name
+  CATVOL    -  Catalog volume
+  COMPIND   -  Compression indicator
+  DATACLAS  -  Data class
+  DEVTYP    -  Device type
+  DIRBLCKS  -  Directory blocks
+  DSCBTTR   -  DSCB TTR
+  DSCRDT2   -  Dataset creation date
+  DSEXDT2   -  Dataset expiration date
+  DSNVER    -  PDSE version number
+  DSORG     -  Dataset organization
+  ENTNAME   -  Entity name
+  ENTYPE    -  Entity type
+  FILESEQ   -  File sequence number
+  HARPN     -  Highest allocated relative page number
+  HURPN     -  Highest used relative page number
+  LIBSHROP  -  Library share options
+  LRECL     -  Logical record length
+  LTREFDAT  -  Dataset last reference date
+  MAXGENS   -  Maximum generations
+  MAXVOLS   -  Maximum volumes
+  MEMCOUNT  -  Member count
+  MGMTCLAS  -  Management class
+  MINUNITS  -  Minimum units
+  PAGSUSED  -  PDSE pages used
+  PDSEFLAG  -  PDSE flag
+  PDSEXFLG  -  PDSE extended flag
+  RECFM     -  Record format
+  SMSINFOM  -  SMS storage, data, and management class
+  SMSSCMC   -  SMS storage and management class
+  STORCLAS  -  Storage class
+  TOTGENCT  -  Total member generation count
+  TOTMEMCT  -  Total member count
+  VOLCOUNT  -  Volume count
+  VOLFLG    -  Volume flag
+  VOLFLG2   -  Volume flag 2
+  VOLLIST   -  Volume list
+  VOLSER    -  Volume serial
+
+)X Syntax - FAMS operand
+
+  Example:  Command ===> fams maxgens dsnver pagsused
+=+
+)F Function -
+
+Using a plus sign at the end of the command will cause the command
+continued entry panel to be displayed.  You can enter up to 255
+characters on that panel.
+
+)X Syntax - command +
+
+=APARS
+)F Function -
+
+APARS will display APARS for Member Generations.
+
+)X Syntax - APARS
+
+=HIST=MODS
+)F Function -
+
+HIST will display a history of PGLITE modifications.
+
+)X Syntax - HISt
+
+   Aliases  - MODS
+
+=DESERV
+)F Function -
+
+DESERV will display the PDSEGENI DESERV return codes.
+
+)X Syntax - DESERV
+
+=DSN
+)F Function -
+
+DSN will display the PDSEGEN dataset history table which contains
+all datasets that have been accessed by PDSEGEN.  PGLITE will switch
+to the dataset if selected by number on the command line or by using
+the (s)elect line command.
+
+)X Syntax - DSN
+
+=QREF
+)F Function -
+
+QREF will display the PGLITE Quick Reference Card.
+
+)X Syntax - QREF
+
+=DUMMIES
+)F Function -
+
+DUMMIES will display the number of dummy members.
+
+)X Syntax - DUMmies
+
+=HIGEN=DEBUG
+)F Function -
+
+HIGEN will display the PDSEGENI dummy member records.  The member
+name and absolute generation number are displayed in character or hex.
+Character is the default format.
+
+A dummy member is a member that holds information about a previously
+deleted member. That information includes the highest absolute
+generation that was used for the member before it, or it's generations,
+were deleted.
+
+)X Syntax - HIGen Char/Hex
+
+   Aliases  - DEBug
+
+=ORPHANS
+)F Function -
+
+ORPHANS will display the orphan members of a member generation PDSE.
+These are members that do not have a corresponding base member (gen-0).
+Orphans can be created when a STOW C|D directory action is issued for
+a base member name.
+
+)X Syntax - ORPHans
+
+=PROGRESS
+)F Function -
+
+PROGRESS ON enables a progress message pop-up while the member
+list table is being built.  PROGRESS OFF disables the message
+pop-up.  PROGRESS with no operand toggles the setting.  The
+default is ON.
+
+)X Syntax - PROGress null/ON/OFF
+
+=WB
+)F Function -
+
+WB invokes the PDSE Workbench component of IBM File Manager.
+
+)X Syntax - WB
+
+=LINE=COMMANDS
+)F Function -
+
+  B  -  Browse
+  E  -  Edit
+  S  -  Edit
+  V  -  View
+  .  -  View (cursor select)
+  D  -  Dump (hex dump of PDSEGENI member record)
+  T  -  Tryit edit macro
+  Z  -  Compare non-0 gen to gen 0
+  /  -  Options
+
+)X Syntax - line command
+
+=TPC
+)F Function -
+
+The PDS Command.  A TSO command processor and ISPF dialog program.
+
+)X Syntax - TPC subcommand operands
+
+=SPFX
+)F Function -
+
+Extract LoadISPF elements (IEBUPDTE format) in preparation for
+loading into ISPF libraries (panels, execs, and TSO help) and
+subsequent removal from PGLITE.
+
+Customization of PGLITE will be required (see /* PGXLITE */ comments).
+The PGLX exec in this distribution has the necessary LIBDEF commands
+to define the ISPF libraries that were loaded.
+
+)X Syntax - SPFX
+
+=BACKUP
+)F Function -
+
+Invoke PDSEGEN BACKUP function.
+
+)X Syntax - BACKUP
+
+=RESTORE
+)F Function -
+
+Invoke PDSEGEN RESTORE function.
+
+)X Syntax - RESTORE
+
+=COPY
+)F Function -
+
+Invoke PDSEGEN COPY function.
+
+)X Syntax - COPY
+
+=MODEL
+)F Function -
+
+Invoke PDSEGEN MODEL function.
+
+)X Syntax - MODEL
+
+=PRUNE
+)F Function -
+
+Invoke PDSEGEN PRUNE function.
+
+)X Syntax - PRUNE
+
+=PDSEGENI=STEM=DUMP
+)F Function -
+
+PDSEGENI member. stem format.
+
+  Field      Start Length
+
+  member      5    8
+  absgen     13    8
+  vrm        22    5
+  cdate      35    7   yyyyddd
+  ttr        46    3
+  mdate      49    7   yyyyddd
+  mtime      56    7   0hhmmss
+  userid     63    8
+  mmod       71    2   hex mod records
+  cur size   75    4   hex
+  init size  79    4   hex
+  dummy flag 87    1   D for dummy generation
+
+=PANELMOD=ISREDDE2
+)F Function -
+
+<ISREDDE2 mod to display Gen: number on title line>
+
+/*  Add to end of )INIT section  */
+IF (&gen = '')
+ELSE
+   IF (&zmemb ¬= ' ') &ztitle =  '&zdsn(&zmemb) Gen: &gen'
+   IF (&zmemb  = ' ') &ztitle =  '&zdsn'
+
+</ISREDDE2 mod>
+
+VIEW       TRIDJK.MBRGEN2($$$$$$$$) Gen: 106         Columns 00001 00072
+Command ===>                                            Scroll ===> CSR
+****** ***************************** Top of Data ***********************
+==MSG> -CAUTION- View session has been started for generation 106
+==MSG>           High generation number is currently 106
+000001 After ISREDDE2 panel modification
+****** **************************** Bottom of Data *********************
+
+=HEL
+)F Function -
+
+HEL will display the PGLITE pseudo TSO Help member that you are
+reading now.
+
+)X Syntax - Hel command
+
+=CUP
+)F Function -
+
+  The best for last.  Gloria, Gloria, ...
+
+)X Syntax - CUP
+
+=MESSAGE=MS=MES=MSG=MESS=MSGS=MESSA=MESSAG=MESSAGES
+)F Function -
+ The MESSAGE HELP entry is provided to document PGLITE messages.
+
+)M Messages -
+   PGLITE has the following messages:
+
+))!@#$% is an invalid command.
+   The command entered is not valid.
+
+))CHARS 'chars' found
+   Search for CHARS 'chars' was successful.
+
+))*Bottom of list reached*
+   CHARS 'chars' not found. Press RFIND key to continue the search from
+   the top of the member list.
+
+))bigcmd is a PDSEGEN command, Press ENTER to invoke.
+   bigcmd can be BACKUP, RESTORE, COPY, MODEL, or PRUNE.
+   Press ENTER to invoke the PDSEGEN dataset command.
+
+))Install FAMSEXTR program from CBT 182 FAMSXMIT file.
+   The FAMSEXTR program must be installed in a task library for
+   the FAMS command to function.
+
+))Member table has been successfully listed.
+   The member table has been written to the ISPLIST dataset.
+
+))PGLITE®   yyyy-mm-dd
+   The VERSION command displays the PGLITE version date.
+
+))PGLITE® Motto...
+   When you believe an idea, hold true.
+
+))String 'string' found in nnnnn members.
+   ISPF SuperC Search-For found data in nnnnn members.
+
+))The current dataset is not a PDSEGEN backup dataset.
+   The REAL command only works for PDSEGEN Backups.
+
+))Valid line commands are: E=Edit, V=View, B=Browse, S=Edit, T=Tryit.
+   You can enter these line commands for a base member generation.
+
+))Valid line commands are: E=Edit, V=View, B=Browse, S=Edit, T=Tryit,
+  Z=Compare to generation 0.
+   You can enter these line commands for a non-zero member generation.
+
+))Invalid GEN parameter
+   GEN has been specified for an edit/view service when the source data
+   set does not contain the specified member, the specified generation,
+   or the data set does not support member generations.
+
+))Error
+   Member list sorted by 'column'. Member list must be sorted by
+   NAME for ORPHANS to work correctly.
+
+))Error
+   The current member is not a PDSEGEN Backup member.
+
+=SMPINSTALL=MCS=MRBILL
+++ FUNCTION(PGL0100) .
+++ VER (Z038)
+   DELETE (PGL0000)
+/* Drop previous PGL levels if installed under SMP.
+
+ Documentation.
+    This is an an SMP install of PGLITE.
+
+ Directions.
+    The panels, execs, help, and object must be extracted and removed
+    from the PGLITE exec and copied to SMPPREFX.PGPSORC.  These members
+    can be extracted with the SPFX command.
+
+    The LoadISPF/DropISPF routines should be nullified in PGLITE.
+    Skeldd should be overridden by the do_pgxlite routine.
+
+      Change..> DropISPF: Procedure; return 0    /* PGXLITE */
+      Change..> LoadISPF: Procedure; return 0    /* PGXLITE */
+
+      After...> parse var load_info . . . . skeldd .
+      Add.....> call do_pgxlite                  /* PGXLITE */
+      After...> parse var load_info . . . . skeldd .
+      Add.....> call do_pgxlite                  /* PGXLITE */
+
+    This member is then received.
+
+    Libraries to be allocated:
+      80 byte FB  :     PGPEXE, PGPPNL, PGPHLP, PGPOBJ
+      Load library:     PGPLINK
+      This library:     PGPSORC
+      One DLIB    :     APGPSRC
+
+    These must be made known to the SMP procedure, or as DDDEFs.
+
+    Approximate space requirements on 3390 drives (please allocate
+    secondary space):
+
+      PGPPNL    -     15  Tracks    -     5   Directory blocks
+      PGPEXE    -     15  Tracks    -     5   Directory blocks
+      PGPHLP    -     15  Tracks    -     5   Directory blocks
+      PGPOBJ    -     15  Tracks    -     5   Directory blocks
+      PGPLINK   -     15  Tracks    -     5   Directory blocks
+      APGPSRC   -     15  Tracks    -     5   Directory blocks
+
+*/ .
+++JCLIN .
+//LK1    EXEC  PGM=IEWL,
+//             PARM='MAP,RENT,REUS,RMODE(ANY),AMODE(31)'
+//PGPOBJ   DD  DISP=SHR,DSN=SYS1.PGPOBJ             <<=== MODIFY
+//SYSLMOD  DD  DISP=SHR,DSN=SYS1.PGPLINK            <<=== MODIFY
+//SYSLIN   DD  *
+  INCLUDE  APGPOBJ(PDSEGENI)
+  ENTRY    PDSEGENI
+  NAME     PDSEGENI(R)
+++PNL(PGLDIRG )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)   .
+++PNL(PGLDIRH )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)   .
+++PNL(PGLDIRH2)  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)   .
+++PNL(PGLLOGO )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)   .
+++PNL(PGLBLUES)  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)   .
+++PNL(PGLHOT  )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)   .
+++PNL(PGLINFO )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)   .
+++PNL(PGLGENI )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)  .
+++PNL(PGLAPARS)  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)  .
+++PNL(PGLQREF )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)  .
+++PNL(PGLAGE  )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)  .
+++PNL(PGLCONT )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)  .
+++PNL(PGLDSN  )  DISTLIB(APGPSRC) SYSLIB(PGPPNL)
+  TXLIB(PGPSORC)  .
+++EXEC(PGLITE  ) DISTLIB(APGPSRC) SYSLIB(PGPEXE) ALIAS(PGXLITE)
+  TXLIB(PGPSORC)  .
+++EXEC(GNAME   ) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++EXEC(PGLFIRST) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++EXEC(PGLRESET) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++EXEC(PGLCOMPZ) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++EXEC(PGLFHELP) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++EXEC(PDSEGFND) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++EXEC(PDSEGVAL) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++EXEC(PGLFAMSX) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++EXEC(PGLX    ) DISTLIB(APGPSRC) SYSLIB(PGPEXE)
+  TXLIB(PGPSORC)  .
+++HELP(PGLHELP ) DISTLIB(APGPSRC) SYSLIB(PGPHLP)
+  TXLIB(PGPSORC)  .
+++OBJ(PDSEGENI)  DISTLIB(APGPSRC) SYSLIB(PGPOBJ)
+  TXLIB(PGPSORC)  .
+>Skel PDSEGENI
+//PDSEGENI JOB 'LINKEDIT PDSEGENI TO A TASKLIB'     <<=== MODIFY
+//*------------------------------------------------------------------*/
+//*  Notes:  Update these JCL statements and submit JOB              */
+//*          1) JOB card (above these comments)                      */
+//*          2) SYSLMOD dataset to store load module PDSEGENI        */
+//*------------------------------------------------------------------*/
+//LKED     EXEC  PGM=IEWL,REGION=32M,
+//             PARM='MAP,LIST,LET,RENT,REUS'
+//SYSUT1   DD  UNIT=SYSALLDA,SPACE=(1024,(200,20))
+//SYSPRINT DD  SYSOUT=*
+//SYSLMOD  DD  DISP=SHR,DSN=AD.PDS86.APDPLINK       <<=== MODIFY
+//SYSLIN   DD  *
+ESD          PDSEGENI                                             PDSE0001
+TXT          ¥  \éõ  ì°­  å0{ Ø ì0{ì\ ìÓìÓ µ¥\ ~é¹    } PDSE0002
+TXT         ×­ ÓK}­à({µ({Håø{Ê(ABåø{Ê(Bêåø{>(Co(PDSE0003
+TXT   ø      B é  ì°­  å0{d Ø ì0{Øì\ ìÓìÓ ö¥\ ìØ K,JyPDSE0004
+TXT   y      ô<KKô½KKô{KK ôH °Jy8}&­d2ì ì   ì&N& ­çåø{2PDSE0005
+TXT   \      K ­<K ­ø 0 2ì-& ìø&ßø­&åAØøàøA¯åØAkk }ðK}ý}ðàøPDSE0006
+TXT        A¶  K P   \}ð&\ \K&&\ì\ jU3åØAâì\÷ì\\Ìn\å PDSE0007
+TXT  &      AÂì0\&åØAÂÕå0A¦ 0     åøAuK ­èK ­e2K ­<KPDSE0008
+TXT  h       ­Ê 0 2K ­<K ­È 0 2K ­<K ­Î 0 2K }ð- N - PDSE0009
+TXT  {      ­K°}ð °&°  Km0 &°j°åØBKKôQ KPDSE0010
+TXT  8       0° &0o&m" ì0 ì00Yj0åøB 0 å0Bì00Õª ­Q2KPDSE0011
+TXT         ­<K ­Ì 0 2 K&°2´}ØKÅJ­UjKåB[ JPDSE0012
+TXT  Ç      Pïko m7k kk &° 0Kè&0 0  &0àì0 ì0PDSE0013
+TXT  µ      4{ì00ì00è¥0 &0Kì& K*å0Cì ­µ å0BH  Êì0BDÌ&Kèì PDSE0014
+TXT  Q      ­µ JPïkk&°&& ì0 ì04{ì00ì00è¥0 &0KìPDSE0015
+TXT        & K*Ô1­Q oåØC°KJ­ì 0­u´J 0 ´J 0Kì´J 0 ´J(PDSE0016
+TXT  ç      IåøC°KJ­ì 0­Ð´J 0 ´J 0K*´J 0 ´J(IåøC°PDSE0017
+TXT  Ø      K ­<K ­:å0C°×}Ø2´}d×Kè×¬åøC½K ­<K ­@å0HUPDSE0018
+TXT  ½       -n-åØCün -åØCüK ­<K ­=å0HUk }©Kí}§}©kP}Dj -åPDSE0019
+TXT  0      C6kN}DP}h}hK}^­*j-åDK}^­-K}ù-kY}¹jØ-åDkN}¹å0PDSE0020
+TXT        DàÏ×Ë-åØDà Ï- Ó×Tø \à\IÏjKåØE+×Ë-åØE+ Ï- K}©ø PDSE0021
+TXT  -      k JjØøåØDøkDJ×ø+ }çK}¯­}ú}¯}<K}ÇøK}ÓøqÕ}Çì PDSE0022
+TXT  q      ìç;0å{Dw\;\¬0èåD©\¬\&°Õ}Çé}mP  k é\}ÇKPDSE0023
+TXT  }      \ kì\ ìÓìÓ¥\ é\}øK\ ì }Ìi  v & }Ç3Ä}\}ÇPDSE0024
+TXT  	      ì }øh  v & }Ç3Ä}X}ÇÏ×Ë-åØGÚ Ï- j KåEàj{°å\E@nø PDSE0025
+TXT  	       å\E@økP}Då0Fq×Ë-åØGÚ Ï- Ó×Tø \à\IÏ×Ë-åØGÚ Ï- nP}DPDSE0026
+TXT  	Ì      åØFq ×-x åøEmK}6ø å0GÚx åøEyjøåGÚå0E½x åøGÚPDSE0027
+TXT  	^      jøå\GÚn ø åØGÚnÄø åGÚnÄøåGÚjøå\GÚjøå\GÚÔø {åøPDSE0028
+TXT  	Y      GÚÔø {åøGÚK}6økI}D ä ø + }Ço}?3}E}Çk.}Gä ø+ }ÇoPDSE0029
+TXT        }?3}H}Ç×ø×øh  v & }Ç3Ä}X}Ç³ø­Àoø3Ä}\ø³ø­ÀPDSE0030
+TXT  ì      oø3Ë}JøK}ÓøP}³}³K}ÜøP}Ú}ÚKJ øjøå\GÚK}³øKPDSE0031
+TXT  °      }Úøå0GÚä }ù3}ûøü}ûI}â }ùK}³øK}Úøjøå\FFK}6øKPDSE0032
+TXT  H      }J­fjøåF¹K}J­iK}M­fjøåFÜK}M­ðjøåFÜK}M­ijøPDSE0033
+TXT         åGjøK}P­ikY}EjØøåGkN}EkY}Fj øåGkN}FkY}HjøåPDSE0034
+TXT        GkN}HkY}IjøåG+kN}IkY}ôjøåG;kN}ôkY}öjøåG>kN}ökYPDSE0035
+TXT  ø      }òjøåG=kN}òkY}ójøåGþkN}ókY}­jø	åGÆkN}­kY}Gjø	åPDSE0036
+TXT  y      GÞkN}GkY}}jøåG´kN}}kY}õj øåGókN}õjøå\GÚ øøNø ­ØPDSE0037
+TXT  \      å GÚ3Ä}\øâo0}W3Ä}Xøão0}ÒK}Óø¢³}&­±K}ì­°3â}ë}&o0}ï \PDSE0038
+TXT        }ë 0 	(­P}¬}¬0à0I 00 00ÕKJ­ì 0}ì´J´ÕJ 0}^´PDSE0039
+TXT  &      J×­Ç´J(IåøH=×Õ- >- ã&Cü×åøCµå0HkK ­%K PDSE0040
+TXT  h      ­p´}hå0HUKJ­ì 0­©´J 0 ´J3â}ë}&o0}ï \}ë 0 	(­´ÕPDSE0041
+TXT  {      J´J(IåØHUK ­%K ­ª´}hå0HU×Kè××"(IPDSE0042
+TXT  8      åøHY×}hå0I×}d2K }©øK }¯øK }¬\ å0I Ø  ì0Iì\ PDSE0043
+TXT        ìÓìÓ ö¥\ 2PJJPJJì0Øæì00åøI¶KJðô4KJmôÜ JmPDSE0044
+TXT  Ç       \J 0J  J°\  \J 0J  J°\ \­¯ 0J°ÕoØ 0Jð  IuPDSE0045
+TXT  µ      å0IÐIKJCT441& 0 å0­KJmôÜ Jm  J&    J&   J& PDSE0046
+TXT  Q        J&   J&   J&   ­¯&   J& oØ	Õå0­bKPDSE0047
+TXT         ­<K ­b2n0\ Ê \\ã0­\ 0 2                -F1SAPDSE0048
+TXT  ç                  PDSEPDS      ï   -1-2-3-4-5-7-8-9PDSE0049
+TXT  Ø       ê-60ANY 24 31MEMBER.-11-12    &  DESERVRCDESERVRSMEMBPDSE0050
+TXT  ½      ER.00123456789ABCDEF             IGWDESP    ÇPDSE0051
+TXT  0                                                            PDSE0052
+TXT                                              Ø                PDSE0053
+TXT  -               d      REMSDCB  }DCBE                  PDSE0054
+TXT  q                                      Ø       Ø               PDSE0055
+TXT  }              ISITMGD            &                          PDSE0056
+TXT                                                                PDSE0057
+RLD              <                                                PDSE0058
+END                           1569623400 010620178                    PDSE0059
+ SETOPT PARM(REUS(RENT),NOOL)
+ MODE AMODE(31),RMODE(ANY)
+ NAME PDSEGENI(R)
+//
+>END */

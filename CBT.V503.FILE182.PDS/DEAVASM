@@ -1,0 +1,301 @@
+//ASM      EXEC PGM=ASMA90,REGION=32M,
+//             PARM=(NORLD,TERM,OBJ,
+//             'XREF(SHORT),SIZE(MAX,ABOVE)')
+//SYSLIB   DD  DSN=SYS1.MODGEN,DISP=SHR
+//         DD  DSN=SYS1.MACLIB,DISP=SHR
+//SYSUT1   DD  UNIT=VIO,SPACE=(4096,(120,1200),,,ROUND),DCB=BUFNO=1
+//SYSLIN   DD  UNIT=VIO,SPACE=(TRK,(5,5)),DISP=(MOD,PASS),DSN=&&X,
+//             DCB=BLKSIZE=3120
+//SYSPRINT DD  SYSOUT=*
+//SYSTERM  DD  SYSOUT=*
+*---------------------------------------------------------------------*
+* FUNCTION:  ISSUE LSPACE AGAINST THE VOLUME.  ALLOW FOR EAV          *
+*            VOLUME FORMAT.                                           *
+*                                                                     *
+* SOURCE:    LSPACEE SAMPLE FROM DFSMS V1.10 AND EAV                  *
+*            TECHNICAL GUIDE, APPENDIX C (SG24-7617-00).              *
+*                                                                     *
+*            HTTP://WWW.ARTECEED.COM/MVS_ADVANCEDSKILL1_SAMPLES/      *
+*            52-UCBSCAN.TXT                                           *
+*                                                                     *
+* MODIFIED:  JANKO AND TIDYASM (CBT 829)                              *
+*            31 MAR 2022 - ADD UCBSCAN CODE                           *
+*            02 APR 2022 - ADD TSO COMMAND PROCESSOR CODE             *
+*                                                                     *
+* DATE:      29 MAR 2022                                              *
+*                                                                     *
+* SYNTAX:    DEAV VOLSER                                              *
+*                                                                     *
+*            DISPLAY LSPACE ENHANCED INFORMATION FOR VOLSER           *
+*            (CYLINDER-MANAGED/TRACK-MANAGED AREAS)                   *
+*                                                                     *
+* LICENSE:   COPYLEFT - GNU GPL V3                                    *
+*---------------------------------------------------------------------*
+         YREGS
+DEAV     CSECT ,
+         MODID ,                   EYECATCHER
+         SAVE  (14,12)
+         LR    R12,R15
+         USING DEAV,R12
+*   CHAIN SAVEAREA'S
+         LA    R11,SVA
+         ST    R11,8(,R13)
+         ST    R13,4(,R11)
+         LR    R13,R11
+*   PROCESS ENVIRONMENT FOR CALLING TSO/E SERVICES
+         LR    R2,R1             COMMAND PROCESSOR PARAMETER LIST
+         USING CPPL,R2
+         L     R1,=A(PARSROOM)   PARSE PARAMETER LIST
+         USING PPL,R1            STRUCTURE FROM DSECT
+         MVC   PPLUPT,CPPLUPT    USER PROFILE TABLE
+         MVC   PPLECT,CPPLECT    ENVIRONMENT CONTROL TABLE
+         MVC   PPLECB,=A(ECB)    COMMAND PROCESSOR'S ECB
+         MVC   PPLPCL,=A(PARSLIST)
+         MVC   PPLANS,=A(PDLPTR) ANSWER AREA FOR IKJPARS
+         MVC   PPLCBUF,CPPLCBUF  COMMAND BUFFER
+         MVC   PPLUWA,=A(0)      USER WORK AREA (VALIDITY CHECK RTN'S)
+         L     R9,CPPLUPT        A(UPT)
+         L     R4,CPPLECT        A(ECT)
+         DROP  R2
+*   GET VOLSER
+         LINK  EP=IKJPARS        REG 1 CONTAINS PARSE PARAMETER LIST
+         L     R2,PDLPTR         GET PTR TO PDL (CREATED BY IKJPARS)
+         USING IKJPARMD,R2
+         LH    R15,EAVVOL+4      LENGTH OF NAME
+         S     R15,=F'1'         MACHINE LENGTH
+         MVC   VOLSER(6),=CL6' ' NO, INITIALIZE VOLUME NAME
+         L     R1,EAVVOL         ADDRESS OF NAME
+         MVC   VOLSER(*-*),0(R1) <<EXECUTED>>
+         EX    R15,*-6           MOVE IN THE NAME
+         SPACE 1
+         XC    SCANWORK,SCANWORK   INIT UCBSCAN WORKAREA
+         UCBSCAN COPY,             GET UCB IMAGE                       +
+               WORKAREA=SCANWORK,                                      +
+               UCBAREA=UCBCOPY,                                        +
+               VOLSER=VOLSER,                                          +
+               DYNAMIC=YES,                                            +
+               RANGE=ALL,                                              +
+               DEVCLASS=DASD,                                          +
+               PLISTVER=MAX
+         LTR   R15,R15             SUCCESSFUL ?
+         BNZ   RETURN              NO, DONE
+         MVC   VOLUME(6),VOLSER
+*
+         LSPACE  UCB=UCBADDR,                                          +
+               EXPDATA=MYDATAE,                                        +
+               PLISTVER=2
+         TM    LSPDRETN,LSPDCYLM   CYLINDER-MANAGED SPACE?
+         BO    EAVYES              YES
+         MVC   EAVNO(2),=C'NO'     NO
+EAVYES   EQU   *
+*        PUT   PRTDCB,PRTL0
+         PUTLINE PARM=PUTBLOCK,UPT=(R9),ECT=(R4),                      *
+               ECB=ECB2,OUTPUT=(@PRTL0,TERM,SINGLE,DATA),              *
+               MF=(E,IOPL)
+*        PUT   PRTDCB,PRTL1V
+         PUTLINE PARM=PUTBLOCK,UPT=(R9),ECT=(R4),                      *
+               ECB=ECB2,OUTPUT=(@PRTL1V,TERM,SINGLE,DATA),             *
+               MF=(E,IOPL)
+         L     R1,LSPDTTRK
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   SIZET(10),PWORD+1
+         L     R1,LSPDTCYL
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   SIZEC(10),PWORD+1
+         L     R1,LSPDNEXT
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   FREEXN(10),PWORD+1
+*        PUT   PRTDCB,PRTL2
+         PUTLINE PARM=PUTBLOCK,UPT=(R9),ECT=(R4),                      *
+               ECB=ECB2,OUTPUT=(@PRTL2,TERM,SINGLE,DATA),              *
+               MF=(E,IOPL)
+         L     R1,LSPDLTRK
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   LARGET(10),PWORD+1
+         L     R1,LSPDLCYL
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   LARGEC(10),PWORD+1
+*        PUT   PRTDCB,PRTL3
+         PUTLINE PARM=PUTBLOCK,UPT=(R9),ECT=(R4),                      *
+               ECB=ECB2,OUTPUT=(@PRTL3,TERM,SINGLE,DATA),              *
+               MF=(E,IOPL)
+*        PUT   PRTDCB,PRTL1T
+         PUTLINE PARM=PUTBLOCK,UPT=(R9),ECT=(R4),                      *
+               ECB=ECB2,OUTPUT=(@PRTL1T,TERM,SINGLE,DATA),             *
+               MF=(E,IOPL)
+         L     R1,LSPDVTTK
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   SIZET(10),PWORD+1
+         L     R1,LSPDVTCL
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   SIZEC(10),PWORD+1
+         L     R1,LSPDVNXT
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   FREEXN(10),PWORD+1
+*        PUT   PRTDCB,PRTL2
+         PUTLINE PARM=PUTBLOCK,UPT=(R9),ECT=(R4),                      *
+               ECB=ECB2,OUTPUT=(@PRTL2,TERM,SINGLE,DATA),              *
+               MF=(E,IOPL)
+         L     R1,LSPDVLTK
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   LARGET(10),PWORD+1
+         L     R1,LSPDVLCL
+         CVD   R1,DWORD
+         OI    DWORD+7,X'0F'
+         UNPK  PWORD(11),DWORD+2(6)
+         MVC   LARGEC(10),PWORD+1
+*        PUT   PRTDCB,PRTL3
+         PUTLINE PARM=PUTBLOCK,UPT=(R9),ECT=(R4),                      *
+               ECB=ECB2,OUTPUT=(@PRTL3,TERM,SINGLE,DATA),              *
+               MF=(E,IOPL)
+*   RETURN TO CALLING CLIST
+RETURN   DS    0H
+         IKJRLSA PDLPTR          RELEASE STORAGE ALLOCATED BY IKJPARS
+         L     R13,SVA+4
+         RETURN (14,12),RC=0
+*   SCAN PARAMETER LIST FOR IKJPARS
+         SPACE 2
+PARSLIST IKJPARM
+EAVVOL   IKJIDENT 'VOLUME NAME',MAXLNTH=6,                             $
+               FIRST=ALPHANUM,OTHER=ALPHANUM,PROMPT='VOLUME NAME',     $
+               HELP=('NAME OF THE VOLUME')
+         IKJENDP
+         SPACE 2
+SVA      DC    18F'0'
+PDLPTR   DC    A(0)              RECEIVES A(PDL) FROM IKJPARS
+PARSROOM DC    7A(0)             ROOM FOR PARSE PCL
+ECB      DC    A(0)
+ECB2     DC    A(0)
+IOPL     DC    4F'0'
+PUTBLOCK PUTLINE  MF=L
+*
+VOLSER   DC    CL6' '
+UCBADDR  DC    A(UCBCOPY)          UCB ADDRESS FIELD
+UCBCOPY  DC    XL48'00'            COPIED UCB AREA
+SCANWORK DC    XL100'00'           WORKAREA FOR UCBSCAN
+MYDATAE  DS    0CL36
+LSPDRETN DS    C
+LSPDCYLM EQU   X'08'               VOLUME CONTAINS CYL MANAGED SPACE
+LSPDSTAT DS    C
+LSPDRSV1 DS    CL2
+* WHOLE VOLUME
+LSPDNEXT DS    CL4
+LSPDTCYL DS    CL4
+LSPDTTRK DS    CL4
+LSPDLCYL DS    CL4
+LSPDLTRK DS    CL4
+LSPDF0S  DS    CL4
+LSPDVIRS DS    CL4
+LSPDFRAG DS    CL4
+* TRACK MANAGED AREA
+LSPDVNXT DS    CL4
+LSPDVTCL DS    CL4
+LSPDVTTK DS    CL4
+LSPDVLCL DS    CL4
+LSPDVLTK DS    CL4
+LSPDVFRG DS    CL4
+* VOLUME AREA
+LSPDTRKS DS    CL4
+LSPDCYLS DS    CL4
+LSPDRSV8 DS    CL60
+*
+DWORD    DS    D
+PWORD    DC    CL11' '
+*
+*
+@PRTL0   DC    AL2(@PRTL0L),AL2(0)
+PRTL0    DC    CL80' '
+@PRTL0L  EQU   *-@PRTL0
+         ORG   PRTL0
+         DC    C'>'
+         ORG   PRTL0+1
+*        DC    CL30' '
+FSPCEH   DC    C'FREE SPACE ON VOLUME'
+         DC    C' '
+VOLUME   DC    CL6' '
+         DC    C' '
+EAV      DC    C' WHICH HAS A  CYLINDER MANAGED AREA'
+EAVNO    EQU   EAV+11
+         ORG
+@PRTL1V  DC    AL2(@PRTL1VL),AL2(0)
+PRTL1V   DC    CL80' '
+@PRTL1VL EQU   *-@PRTL1V
+         ORG   PRTL1V+1
+TOTALHV  DC    C'TOTAL'
+         ORG   PRTL1V+22
+TRACSHV  DC    C'ADD TRACKS'
+         ORG   PRTL1V+51
+CYLSHV   DC    C'CYLS'
+         ORG   PRTL1V+68
+FREEXTCV DC    C'FREE XTS'
+         ORG
+@PRTL1T  DC    AL2(@PRTL1TL),AL2(0)
+PRTL1T   DC    CL80' '
+@PRTL1TL EQU   *-@PRTL1T
+         ORG   PRTL1T+1
+TOTALHT  DC    C'TRACK MANAGED'
+         ORG   PRTL1T+22
+TRACSHT  DC    C'ADD TRACKS'
+         ORG   PRTL1T+51
+CYLSHT   DC    C'CYLS'
+         ORG   PRTL1T+68
+FREEXTCT DC    C'FREE XTS'
+         ORG
+*
+@PRTL2   DC    AL2(@PRTL2L),AL2(0)
+PRTL2    DC    CL80' '
+@PRTL2L  EQU   *-@PRTL2
+         ORG   PRTL2+1
+SIZECC   DC    CL20'SIZE . .:'
+         DC    C' '
+SIZET    DC    CL22' '
+         DC    C' '
+SIZEC    DC    CL20' '
+         DC    C' '
+FREEXN   DC    CL22' '
+         ORG
+@PRTL3   DC    AL2(@PRTL3L),AL2(0)
+PRTL3    DC    CL80' '
+@PRTL3L  EQU   *-@PRTL3
+         ORG   PRTL3+1
+LARGECC  DC    CL20'LARGEST.:'
+         DC    C' '
+LARGET   DC    CL22' '
+         DC    C' '
+LARGEC   DC    CL20' '
+         ORG
+         LTORG ,
+         IKJCPPL ,               COMMAND PROCESSOR PARAMETER LIST
+         IKJPPL ,                PARSE PARAMETER LIST
+         IKJECT ,                ENVIRONMENT CONTROL TABLE
+         IKJUPT ,                USER PROFILE TABLE
+         END   DEAV
+//LKED     EXEC PGM=IEWL,COND=(4,LT),REGION=32M,
+//             PARM='MAP,NCAL'
+//SYSPRINT DD  SYSOUT=*
+//IN       DD  DSN=&&X,DISP=(OLD,DELETE)
+//SYSLMOD  DD  DISP=SHR,
+//             DSN=SYS1.CBT.LINKLIB                 <<=== LINK TARGET
+//SYSUT1   DD  UNIT=VIO,SPACE=(1024,(120,120),,,ROUND),
+//             DCB=BUFNO=1
+//SYSLIN   DD  *
+  INCLUDE  IN
+  NAME     DEAV(R)                                  <<=== LOADMOD NAME

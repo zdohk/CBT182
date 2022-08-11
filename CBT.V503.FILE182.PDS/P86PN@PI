@@ -1,0 +1,35 @@
+)ATTR DEFAULT(%+_)
+    % TYPE(TEXT) INTENS(HIGH) COLOR(WHITE) SKIP(ON)
+    ¢ TYPE(TEXT) INTENS(HIGH) COLOR(YELLOW)
+    + TYPE(TEXT) INTENS(LOW)  COLOR(TURQ) SKIP(ON)
+    _ TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) COLOR(RED)
+    ¬ TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) COLOR(RED) PAD(_)
+    ¦ TYPE(INPUT) INTENS(HIGH) CAPS(OFF)
+)BODY EXPAND(\\)
+%TUTORIAL  +-\-\-¢PDS Command Entry Panel+-\-\-
+%OPTION  ===>_ZCMD                                                             +
++
+   The program mode chosen affects only the initial mode on entry to the
+  ¢PDS+command; you can switch to any of the other following program
+   modes at a later time:
+
+    %ISPMODE  +- A scrollable log of the¢PDS+session is maintained
+                 in an ISPF dialog table.  This table is managed by
+                 special control codes from various panels.
+
+    %MEMLIST  +- A scrollable member list is maintained in an ISPF
+                 dialog table.  Individual¢PDS+subcommands can be
+                 entered as line commands to process specific members.
+
+    %Line mode+-¢PDS+communicates using PUTLINE and PUTGET macros;
+                 ISPMODE logs and member lists are not maintained.
+
+
+   Press%ENTER+for the¢PDS+Tutorial Directory.
+
+)INIT
+  &USRLEFT  = ''
+  &USRRIGHT = ''
+)PROC
+&ZCONT = P86PN@PO
+)END

@@ -1,0 +1,103 @@
+/* --------------------  rexx procedure  -------------------- *
+ | Name:      GLOBAL                                          |
+ |                                                            |
+ | Function:  The GLOBAL exec is used to build a batch job    |
+ |            with PDS subcommands for each dataset in the    |
+ |            LISTC/LISTF table.                              |
+ |                                                            |
+ | Install:   Add GLOBAL as a primary command extension       |
+ |            in PDS.                                         |
+ |                                                            |
+ |            <Panel P86OPUX>                                 |
+ |            %GLOBAL+ Run subcommand for each file in LISTC  |
+ |              GLOBAL,'CMD(%GLOBAL &OPERAND)'                |
+ |                                                            |
+ | Use:       GLOBAL attrib : short                           |
+ |            GLOBAL find p86: 'Janko' asis                   |
+ |            GLOBAL                                          |
+ |                                                            |
+ | Author:    Janko Kalinic                                   |
+ |            The ISPF Cabal - Vive la revolution             |
+ |            the.pds.command@gmail.com                       |
+ |                                                            |
+ | History:  (most recent on top)                             |
+ |            06/24/22 - Creation                             |
+ |                                                            |
+ * ---------------------------------------------------------- */
+Parse Arg pdscmd
+
+Do While pdscmd = ""
+  Say "Enter PDS subcommand"
+  Say "(for each dataset in LISTF table):"
+  Parse Pull pdscmd
+  End
+
+Address ISPEXEC
+"CONTROL ERRORS RETURN"
+"VGET (PDSTNAME)"
+
+If Left(pdstname,3) /= 'PDC' Then Do
+  zmsg000l =  "Table is not LISTC/F"
+  "SETMSG MSG(ISPZ000)"
+  Exit
+  End
+
+"TBTOP" pdstname
+If rc > 0 Then Do
+  zmsg000l = "TBTOP failed for table" pdstname "RC="rc
+  "SETMSG MSG(ISPZ000)"
+  Exit rc
+  End
+
+Address TSO
+"Newstack"
+
+Queue "//TSO      EXEC  PGM=IKJEFT01,REGION=32M,DYNAMNBR=5000"
+Queue "//STEPLIB  DD  DSN=AD.CMDLIB,DISP=SHR                 "
+Queue "//SYSTSPRT DD  SYSOUT=*                               "
+Queue "//SYSTSIN  DD  *                                      "
+
+rows = 0
+Address ISPEXEC
+Do Forever
+  "TBSKIP" pdstname
+  If rc > 0 Then Leave
+  "TBGET" pdstname
+  If rc > 0 Then Leave
+  rows = rows + 1
+  If pos('.',pdscdsn) = 0 Then Iterate
+  If Left(pdscdsor,1) = 'P' Then Nop
+     Else Iterate
+  If pdscvol = 'MIGRAT' |,
+     pdscvol = 'ARCIVE' |,
+     pdscvol = 'ARCHIV' then
+     Iterate
+  If first = 'FIRST' then do
+    Queue "PDS '"pdscdsn"'"
+    first = ''
+    End
+  Else
+    Queue "CHANGE '"pdscdsn"'"
+  Queue pdscmd
+  End
+
+Address TSO
+x = Outtrap("delete.","*")
+"DELETE GLOBAL."pdstname
+x= Outtrap("off")
+"ALLOC F(GLOBAL) UNIT(SYSALLDA) NEW REUSE SPACE(1,1) TRACKS",
+  "LRECL(80) RECFM(F B) BLKSIZE(0) DSORG(PS)",
+  "DA(GLOBAL."pdstname")"
+Queue ""
+
+"Execio * DISKW GLOBAL (FINIS"
+"Delstack"
+
+Address ISPEXEC
+"CONTROL ERRORS RETURN"
+"VIEW   DATASET(GLOBAL."pdstname")"
+"CONTROL ERRORS CANCEL"
+
+Address TSO
+"FREE  F(GLOBAL)"
+Exit

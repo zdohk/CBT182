@@ -1,0 +1,28 @@
+/* --------------------  rexx procedure  --------------------------- */
+/* Name:      FMVLM                                                  |
+ |                                                                   |
+ | Function:  IBM File Manager view load module information          |
+ |                                                                   |
+ | Use:       User extended line command in P86LLUX to display a     |
+ |            load module with IBM File Manager.                     |
+ |                                                                   |
+ |            VLM,'CMD(%FMVLM  ''&PDSDSN'' &PDSMEM)'                 |
+ |                                                                   |
+ | Syntax:    %FMVLM 'loaddsn' member                                |
+ |                                                                   |
+ | Author:    Janko Kalinic                                          |
+ |            The ISPF Cabal - Vive la revolution                    |
+ |                                                                   |
+ | History:                                                          |
+ |            11/29/21 - Creation                                    |
+ | ----------------------------------------------------------------- |
+ | Copyleft (c) All Wrongs Reserved                                  |
+ * ----------------------------------------------------------------- */
+
+arg pdsdsn pdsmem
+fmnlmdsn = pdsdsn
+fmnlmmem = pdsmem
+Address ISPEXec
+"vput (fmnlmdsn fmnlmmem) profile"
+"select cmd(fmnmain vlm) mode(fscr)"
+exit

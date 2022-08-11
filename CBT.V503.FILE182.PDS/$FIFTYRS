@@ -1,0 +1,25 @@
+ST LOUIS, March 20, 2022 (UNDERDOG® NEWSWIRE) -
+
+The PDS command that runs on the latest z/OS operating system today
+was developed five decades ago on the OS/360 operating system.
+
+Tom Springer, Steve Smith and William Finkelstein were the original
+authors in 1972 when they worked together at Security Pacific National
+Bank.
+
+During the next twenty years, Bruce Leland and Steve Smith changed the
+landscape of the PDS command by adding a vast number of new subcommands
+and ISPF dialog functions.  All of which, is written in reentrant
+assembly language.
+
+After a decade of dormancy, PDS was enhanced to support Year 2000
+dates, CUA panel design, Partitioned Data Set Extended (Greg Price),
+ISPF extended statistics, PDSE datasets in cylinder-managed space
+(John Hamlet), 8-character TSO userids, and new subcommands with
+interfaces to standard utility programs.
+
+
+Best Regards,
+Sam
+
+P.S. May the source be with you.

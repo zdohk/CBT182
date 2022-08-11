@@ -1,0 +1,189 @@
+)ATTR DEFAULT(%+_)
+    % TYPE(TEXT) INTENS(HIGH) COLOR(WHITE) SKIP(ON)
+    ¢ TYPE(TEXT) INTENS(HIGH) COLOR(YELLOW)
+    + TYPE(TEXT) INTENS(LOW)  COLOR(TURQ) SKIP(ON)
+    _ TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) COLOR(RED)
+    ¬ TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) COLOR(RED) PAD(_)
+    ¦ TYPE(INPUT) INTENS(HIGH) CAPS(OFF)
+    # TYPE(AB)    FORMAT(MIX)
+    " TYPE(ABSL) GE(ON)
+    ~ type(output) intens(high) caps(off) just(left) pas(on)
+      color(blue) hilite(uscore)
+)ABC DESC('RefList') MNEM(1)
+PDC DESC('Current Data Set List &ZDSCURT.') MNEM(1) ACC(CTRL+ALT+P)
+ ACTION RUN(ISRRLIST) PARM('PL1')
+PDC DESC('Current Library List &ZDSCURLT.') MNEM(2) ACC(CTRL+SHIFT+P)
+ ACTION RUN(ISRRLIST) PARM('LL1')
+PDC DESC('List of Personal Data Set Lists') MNEM(1) PDSEP(ON) ACC(CTRL+ALT+O)
+ ACTION RUN(ISRRLIST) PARM('PL2')
+PDC DESC('List of Personal Library Lists') MNEM(2) ACC(CTRL+SHIFT+O)
+ ACTION RUN(ISRRLIST) PARM('LL2')
+)ABCINIT
+.ZVARS=REFLIST
+      VGET (ZCURTB ZCURLTB) PROFILE
+      IF (&ZCURTB = &Z) &ZDSCURT = &Z
+      ELSE &ZDSCURT= '(&ZCURTB)'
+      IF (&ZCURLTB = &Z) &ZDSCURLT = &Z
+      ELSE &ZDSCURLT= '(&ZCURLTB)'
+)ABC DESC('RefMode') MNEM(2)
+PDC DESC('List Execute') UNAVAIL(ZRM1) MNEM(1) ACTION RUN(ISRRLIST) PARM('BEX')
+PDC DESC('List Retrieve') UNAVAIL(ZRM2) MNEM(2) ACTION RUN(ISRRLIST) PARM('BRT')
+)ABCINIT
+.ZVARS=REFMODE
+  VGET (ZBLIST) PROFILE
+  IF (&ZBLIST = 'EXECUTE')
+    &zrm1 = 1
+    &zrm2 = 0
+    &refmode = 2
+  ELSE
+    &zrm1 = 0
+    &zrm2 = 1
+    &refmode = 1
+)BODY EXPAND(\\)
+%# RefList# RefMode+
+"-------------------------------------------------------------------------------
++ \ \ ¢O.C    CHANGE Data Set Entry Panel+ \ \
+%OPTION ===>_ZCMD                                                              +
++
++ISPF LIBRARY:
++   PROJECT%===>_PRJ1    %
++   LIBRARY%===>_LIB1    %
++   TYPE   %===>_TYP1    %
++
++Other partitioned or sequential data set or FILE(ddname):
++   DATA SET NAME %===>_DSN1                                                   %
++   VOLUME SERIAL %===>_VOL1  +  (If not cataloged)
++   VOLUME SET    %===>_VOLSET+  (For a default volume name)
++   DISPOSITION   %===>_DISP+    (SHR or OLD)
++   MEMLIST PROMPT%===>_MEMP+    (Yes/No for a MEMLIST prompt panel)
++
++
++
++                  ~hotspot            +
++
+)INIT
+  .HELP   = P86PN@PH
+  .NRET = ON
+  &CDM = ' '
+  &hotspot = 'CHANGE Dataset Menu'
+  &MEMP=&PDSMEMP
+  &DSN1='''&PDSDSN'''
+  &VOL1=&PDSVOL
+  IF (&DISP = &Z)  &DISP = 'SHR'
+  .CURSOR = DSN1
+)REINIT
+  .NRET = ON
+  REFRESH (*)
+)PROC
+  /* Start NRETRIEV code */
+  .NRET = OFF
+  IF (&ZVERB = NRETRIEV)
+    VGET (ZCURTB,ZCURLTB) PROFILE
+    IF (.CURSOR NE DSN1 AND .CURSOR NE VOL1)
+      .NRET = LIB
+      IF (&ZNRLIB = YES)
+        &PRJ1 = &ZNRPROJ
+        &LIB1 = &ZNRGRP1
+        &TYP1 = &ZNRTYPE
+        &DSN1 = &Z
+        &VOL1 = &Z
+        .MSG = ISRDS013
+      ELSE .MSG = ISRDS011
+    ELSE
+      .NRET = DSN
+      IF (&ZNRDS = YES)
+        .CURSOR = DSN1
+        &DSN1 = &ZNRODSN
+        &VOL1 = &ZNRVOL
+        .MSG = ISRDS014
+      ELSE .MSG = ISRDS012
+  /* End NRETRIEV code */
+  /* Start RefList code */
+  VGET (ZRDSN ZRVOL) SHARED
+  IF (&ZRDSN ¬= ' ')
+    &DSN1 = &ZRDSN
+    VGET (ZREFVOLM) PROFILE
+    IF (&ZREFVOLM = 'ON')
+      &VOL1 = &ZRVOL
+    ELSE                                                  /* OW15849*/
+      &VOL1 = &Z                                          /* OW15849*/
+    &ZDSVOL = &VOL1
+    .CURSOR = DSN1
+    &ZRDSN = ' '
+    &ZRVOL = ' '
+    VPUT (ZRDSN ZRVOL) SHARED
+    VPUT (ZDSVOL) SHARED
+    VGET (ZBLIST) PROFILE
+    IF (&ZBLIST ¬= 'EXECUTE') .MSG = ISRDS003
+  VGET (DSALSEL) SHARED
+  IF (&DSALSEL ¬= ' ')
+    VGET (DSA1,DSA2,DSA6,DSA7) SHARED
+    &PRJ1 = &DSA1
+    &LIB1 = &DSA2
+    &TYP1 = &DSA6
+    &DSN1 = ' '
+    &VOL1 = ' '
+    &DSALSEL = ' '
+    VPUT (DSALSEL) SHARED
+    VGET (ZBLIST) PROFILE
+    IF (&ZBLIST ¬= 'EXECUTE') .MSG = ISRDS003
+  /* End RefList code */
+  &MEMP = TRANS(TRUNC(&MEMP,1),Y,YES,N,NO,*,*)
+  VER (&MEMP,NB,LIST,Y,N,YES,NO)
+  IF (&MEMP = Y)  &MEMP=YES
+  IF (&MEMP = N)  &MEMP=NO
+  &PDSMEMP=&MEMP
+  IF (&ZCMD ¬= &Z) .MSG = ISPZ001
+  IF (&DSN1= ' ')
+    VER (&PRJ1,NB,DSNAME,MSG=PDSM862S)
+    VER (&LIB1,NB,DSNAME,MSG=PDSM863S)
+    VER (&TYP1,NB,DSNAME,MSG=PDSM864S)
+    &OPT2 = 1
+    IF (&VOL1¬= ' ')  .MSG =PDSM867S
+    IF (&VOLSET¬= ' ')  .MSG =PDSM867S
+  IF (&DSN1¬= ' ')
+     &ENT1=TRUNC(&DSN1,'(')
+     IF (&ENT1 ¬= &DSN1) /* MEMBER NAME GIVEN */
+       &T=TRUNC(&ENT1,1)
+       IF (&T='''')
+         &ENT1=.TRAIL
+       IF (&T¬='''')
+        &T=&ENT1
+        IF (&ZPREFIX¬='')
+         &ENT1='&ZPREFIX..&ENT1'
+     IF (&ENT1 = &DSN1) /* MEMBER NAME NOT GIVEN */
+       &T=TRUNC(&DSN1,1)
+       IF (&T='''')
+         &ENT1=.TRAIL
+         &ENT1=TRUNC(&ENT1,'''')
+       IF (&T¬='''')
+         &ENT1='&ZPREFIX..&DSN1'
+         IF (&ZPREFIX='') &ENT1=&DSN1
+         IF (&DSN1='*') &T=FILE
+     IF (&T = 'FILE', 'FIL' ,'FI' ,'F')
+        &T ='FILE'
+     IF (&T¬='FILE')
+       &DSN1='''&ENT1'''
+       VER (&DSN1,DSNAME,MSG=PDSM869S)
+     IF (&VOL1 = &Z)
+       &OPT2 = 2
+       IF (&VOLSET ¬= &Z)
+         &OPT2 = 3
+     IF (&VOL1 ¬= &Z)
+       &OPT2 = 4
+       IF (&VOLSET ¬= &Z)
+         &OPT2 = 5
+  IF (&CDM = 'YES')
+    &OPT2 = 6
+  &PDSZSEL = TRANS( &OPT2,
+                1,'CHANGE ''&PRJ1..&LIB1..&TYP1'' VOLSET(*) &DISP'
+                2,'CHANGE &DSN1 VOLSET(*) &DISP'
+                3,'CHANGE &DSN1 VOLSET(&VOLSET) &DISP'
+                4,'CHANGE &DSN1 VOL(&VOL1) VOLSET(*) &DISP'
+                5,'CHANGE &DSN1 VOL(&VOL1) VOLSET(&VOLSET) &DISP'
+                6,'PANEL(P86CHG@)'
+               ' ',' '
+                *,'?' )
+)PNTS
+  FIELD(hotspot) VAR(CDM) VAL('YES')
+)END

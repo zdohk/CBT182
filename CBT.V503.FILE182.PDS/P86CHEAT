@@ -1,0 +1,189 @@
+)ATTR DEFAULT(%+_)
+    % TYPE(TEXT) INTENS(HIGH) COLOR(WHITE) SKIP(ON)
+    ¢ TYPE(TEXT) INTENS(HIGH) COLOR(YELLOW)
+    + TYPE(TEXT) INTENS(LOW)  COLOR(TURQ) SKIP(ON)
+    _ TYPE(INPUT) INTENS(HIGH) CAPS(OFF) JUST(LEFT) COLOR(RED)
+    ~ TYPE(INPUT) INTENS(HIGH) CAPS(ON) JUST(LEFT) COLOR(RED)
+      HILITE(USCORE)
+    Ý area(SCRL) Extend(ON)
+    ¨ type(output) intens(low) caps(off) color(white)
+    ` type(ps)
+)BODY EXPAND(\\)
++-\-\-¢PDS Cheat Sheet for Subcommmands+-\-\-
+%OPTION ===>_ZCMD                                                              +
++
++Choose one of the following by number (point-and-shoot):
++
+    PDS subcommands                       Save changes to Profile%===>~Z+ (Y/N)+
+Ýsam --------------------------------------------------------------------------Ý
+)Area Sam
+ `1_PDSPRE01                                                                ¨z +
+ `2_PDSPRE02                                                                ¨z +
+ `3_PDSPRE03                                                                ¨z +
+ `4_PDSPRE04                                                                ¨z +
+ `5_PDSPRE05                                                                ¨z +
+ `6_PDSPRE06                                                                ¨z +
+ `7_PDSPRE07                                                                ¨z +
+ `8_PDSPRE08                                                                ¨z +
+ `9_PDSPRE09                                                                ¨z +
+`10_PDSPRE10                                                                ¨z +
+`11_PDSPRE11                                                                ¨z +
+`12_PDSPRE12                                                                ¨z +
+`13_PDSPRE13                                                                ¨z +
+`14_PDSPRE14                                                                ¨z +
+`15_PDSPRE15                                                                ¨z +
+`16_PDSPRE16                                                                ¨z +
+`17_PDSPRE17                                                                ¨z +
+`18_PDSPRE18                                                                ¨z +
+`19_PDSPRE19                                                                ¨z +
+`20_PDSPRE20                                                                ¨z +
+`21_PDSPRE21                                                                ¨z +
+`22_PDSPRE22                                                                ¨z +
+`23_PDSPRE23                                                                ¨z +
+`24_PDSPRE24                                                                ¨z +
+`25_PDSPRE25                                                                ¨z +
+`26_PDSPRE26                                                                ¨z +
+`27_PDSPRE27                                                                ¨z +
+`28_PDSPRE28                                                                ¨z +
+`29_PDSPRE29                                                                ¨z +
+`30_PDSPRE30                                                                ¨z +
+)INIT
+  .HELP   = P86PN@PH
+  IF (&SAVECHGS = ' ')
+    &SAVECHGS = 'Y'
+  .zvars = '(SAVECHGS PS01 PS02 PS03 PS04 PS05 PS06 PS07 PS08 +
+             PS09 PS10 PS11 PS12 PS13 PS14 PS15 PS16 +
+             PS17 PS18 PS19 PS20 PS21 PS22 PS23 PS24 +
+             PS25 PS26 PS27 PS28 PS29 PS30)'
+)PROC
+  IF (&SAVECHGS = 'Y')
+    VPUT (PDSPRE01) PROFILE
+    VPUT (PDSPRE02) PROFILE
+    VPUT (PDSPRE03) PROFILE
+    VPUT (PDSPRE04) PROFILE
+    VPUT (PDSPRE05) PROFILE
+    VPUT (PDSPRE06) PROFILE
+    VPUT (PDSPRE07) PROFILE
+    VPUT (PDSPRE08) PROFILE
+    VPUT (PDSPRE09) PROFILE
+    VPUT (PDSPRE10) PROFILE
+    VPUT (PDSPRE11) PROFILE
+    VPUT (PDSPRE12) PROFILE
+    VPUT (PDSPRE13) PROFILE
+    VPUT (PDSPRE14) PROFILE
+    VPUT (PDSPRE15) PROFILE
+    VPUT (PDSPRE16) PROFILE
+    VPUT (PDSPRE17) PROFILE
+    VPUT (PDSPRE18) PROFILE
+    VPUT (PDSPRE19) PROFILE
+    VPUT (PDSPRE20) PROFILE
+    VPUT (PDSPRE21) PROFILE
+    VPUT (PDSPRE22) PROFILE
+    VPUT (PDSPRE23) PROFILE
+    VPUT (PDSPRE24) PROFILE
+    VPUT (PDSPRE25) PROFILE
+    VPUT (PDSPRE26) PROFILE
+    VPUT (PDSPRE27) PROFILE
+    VPUT (PDSPRE28) PROFILE
+    VPUT (PDSPRE29) PROFILE
+    VPUT (PDSPRE30) PROFILE
+  &pdszsel=TRANS(TRUNC(&ZCMD,'.')
+          1,'&PDSPRE01'
+          2,'&PDSPRE02'
+          3,'&PDSPRE03'
+          4,'&PDSPRE04'
+          5,'&PDSPRE05'
+          6,'&PDSPRE06'
+          7,'&PDSPRE07'
+          8,'&PDSPRE08'
+          9,'&PDSPRE09'
+         10,'&PDSPRE10'
+         11,'&PDSPRE11'
+         12,'&PDSPRE12'
+         13,'&PDSPRE13'
+         14,'&PDSPRE14'
+         15,'&PDSPRE15'
+         16,'&PDSPRE16'
+         17,'&PDSPRE17'
+         18,'&PDSPRE18'
+         19,'&PDSPRE19'
+         20,'&PDSPRE20'
+         21,'&PDSPRE21'
+         22,'&PDSPRE22'
+         23,'&PDSPRE23'
+         24,'&PDSPRE24'
+         25,'&PDSPRE25'
+         26,'&PDSPRE26'
+         27,'&PDSPRE27'
+         28,'&PDSPRE28'
+         29,'&PDSPRE29'
+         30,'&PDSPRE30'
+          ' ',' '
+          *,' ' )
+  *Rexx(* pdszsel)
+  if pdszsel <> '' then
+    say '>'||pdszsel
+  *EndRexx
+)FIELD
+  FIELD(PDSPRE01) IND(PS01,'<>') LEN(255)
+  FIELD(PDSPRE02) IND(PS02,'<>') LEN(255)
+  FIELD(PDSPRE03) IND(PS03,'<>') LEN(255)
+  FIELD(PDSPRE04) IND(PS04,'<>') LEN(255)
+  FIELD(PDSPRE05) IND(PS05,'<>') LEN(255)
+  FIELD(PDSPRE06) IND(PS06,'<>') LEN(255)
+  FIELD(PDSPRE07) IND(PS07,'<>') LEN(255)
+  FIELD(PDSPRE08) IND(PS08,'<>') LEN(255)
+  FIELD(PDSPRE09) IND(PS09,'<>') LEN(255)
+  FIELD(PDSPRE10) IND(PS10,'<>') LEN(255)
+  FIELD(PDSPRE11) IND(PS11,'<>') LEN(255)
+  FIELD(PDSPRE12) IND(PS12,'<>') LEN(255)
+  FIELD(PDSPRE13) IND(PS13,'<>') LEN(255)
+  FIELD(PDSPRE14) IND(PS14,'<>') LEN(255)
+  FIELD(PDSPRE15) IND(PS15,'<>') LEN(255)
+  FIELD(PDSPRE16) IND(PS16,'<>') LEN(255)
+  FIELD(PDSPRE17) IND(PS17,'<>') LEN(255)
+  FIELD(PDSPRE18) IND(PS18,'<>') LEN(255)
+  FIELD(PDSPRE19) IND(PS19,'<>') LEN(255)
+  FIELD(PDSPRE20) IND(PS20,'<>') LEN(255)
+  FIELD(PDSPRE21) IND(PS21,'<>') LEN(255)
+  FIELD(PDSPRE22) IND(PS22,'<>') LEN(255)
+  FIELD(PDSPRE23) IND(PS23,'<>') LEN(255)
+  FIELD(PDSPRE24) IND(PS24,'<>') LEN(255)
+  FIELD(PDSPRE25) IND(PS25,'<>') LEN(255)
+  FIELD(PDSPRE26) IND(PS26,'<>') LEN(255)
+  FIELD(PDSPRE27) IND(PS27,'<>') LEN(255)
+  FIELD(PDSPRE28) IND(PS28,'<>') LEN(255)
+  FIELD(PDSPRE29) IND(PS29,'<>') LEN(255)
+  FIELD(PDSPRE30) IND(PS30,'<>') LEN(255)
+)PNTS
+  FIELD(ZPS01001) VAR(ZCMD) VAL(1)
+  FIELD(ZPS01002) VAR(ZCMD) VAL(2)
+  FIELD(ZPS01003) VAR(ZCMD) VAL(3)
+  FIELD(ZPS01004) VAR(ZCMD) VAL(4)
+  FIELD(ZPS01005) VAR(ZCMD) VAL(5)
+  FIELD(ZPS01006) VAR(ZCMD) VAL(6)
+  FIELD(ZPS01007) VAR(ZCMD) VAL(7)
+  FIELD(ZPS01008) VAR(ZCMD) VAL(8)
+  FIELD(ZPS01009) VAR(ZCMD) VAL(9)
+  FIELD(ZPS01010) VAR(ZCMD) VAL(10)
+  FIELD(ZPS01011) VAR(ZCMD) VAL(11)
+  FIELD(ZPS01012) VAR(ZCMD) VAL(12)
+  FIELD(ZPS01013) VAR(ZCMD) VAL(13)
+  FIELD(ZPS01014) VAR(ZCMD) VAL(14)
+  FIELD(ZPS01015) VAR(ZCMD) VAL(15)
+  FIELD(ZPS01016) VAR(ZCMD) VAL(16)
+  FIELD(ZPS01017) VAR(ZCMD) VAL(17)
+  FIELD(ZPS01018) VAR(ZCMD) VAL(18)
+  FIELD(ZPS01019) VAR(ZCMD) VAL(19)
+  FIELD(ZPS01020) VAR(ZCMD) VAL(20)
+  FIELD(ZPS01021) VAR(ZCMD) VAL(21)
+  FIELD(ZPS01022) VAR(ZCMD) VAL(22)
+  FIELD(ZPS01023) VAR(ZCMD) VAL(23)
+  FIELD(ZPS01024) VAR(ZCMD) VAL(24)
+  FIELD(ZPS01025) VAR(ZCMD) VAL(25)
+  FIELD(ZPS01026) VAR(ZCMD) VAL(26)
+  FIELD(ZPS01027) VAR(ZCMD) VAL(27)
+  FIELD(ZPS01028) VAR(ZCMD) VAL(28)
+  FIELD(ZPS01029) VAR(ZCMD) VAL(29)
+  FIELD(ZPS01030) VAR(ZCMD) VAL(30)
+)END

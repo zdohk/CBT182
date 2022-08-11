@@ -1,0 +1,29 @@
+)BODY
+   +       `yy+ooos+``yy+ooooooooooooooooooooooooooooooooooooooooood.
+            `oo+dmo+s``o++mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmh:o+
+             `/s/dmy/s-`s/yNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNho+s:`
+               :y/hNh/o+o/hmdddddddddddddddddddddddddddddddhs/-+d.
+                .y/ymmhhdmNmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmy:o/
+                 `s+omNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNmhs/oy-
+                  `+o+mNNNNNNNmdddddddddddddddddddddddddhyo-/y-
+   %STL Blues+     `/s/dNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNmdyo+o/`
+    % 2019  +        -s/yNNNNNNNNmdddddddddddddddddhys/:oy:`
+    %We Won +         .s+smNNNNNNmmmmmmmmmmmmmmmmmdhso+o/.
+    %The CUP+          `o+omNNNNNNNNNNNNNNNhsossoooo+/-`
+                        `+o+dNNmmNNmyssyyyys+:sh/-.`
+                          :s/hNm+/oss-+ho+++//::`
+                        ``.:y/ymm++y++/o-
+                   `.:/++oo+so:smmo+o`
+                 ./oooyyhddmmddhmNmy/s-
+                :s+ydmNNNNNNNNNNNNNNh/s:
+               .y/dNNNNNNNNNNNNNNNNNNd/h.
+               :soNNNNNNNNNNNNNNNNNNNN+s:
+               .y/dNNNNNNNNNNNNNNNNNNh/y.
+                -s+sdmNNNNNNNNNNNNmds+s-
+                 `:+oosyhddddddhysoo+:````
+                    .://++oooo++//-`  `-:+`
+
+)PROC
+if (.resp = 'ENTER')
+  .resp = 'END'
+)END

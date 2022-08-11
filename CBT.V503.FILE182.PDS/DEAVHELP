@@ -1,0 +1,26 @@
+)F  Example -     DEAV eavcb1
+
+ The DEAV command displays space utilization of a volume using the
+ LSPACE (SVC 78) macro facility.  If the volume is an Extended
+ Address Volume (>65,520 cylinders), the cylinder managed area and
+ the track managed area information will be displayed.
+
+)X SYNTAX -
+     DEAV  volume
+
+ ALIASES  - none.
+ DEFAULTS - none.
+ REQUIRED - VOLUME
+
+)O OPERANDS -
+  volume      - is the volume name of a mounted direct access volume
+
+ Sample output -
+
+ FREE SPACE ON VOLUME EAVCB1  WHICH HAS A  CYLINDER MANAGED AREA
+ TOTAL                ADD TRACKS               CYLS             FREE XTS
+ SIZE . .:            0000000029         0000120108           0000000005
+ LARGEST.:            0000000000         0000065445
+ TRACK MANAGED        ADD TRACKS               CYLS             FREE XTS
+ SIZE . .:            0000000029         0000065445           0000000004
+ LARGEST.:            0000000000         0000065445
